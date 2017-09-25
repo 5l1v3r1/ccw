@@ -1,0 +1,317 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Classifying MNIST digits using Logistic Regression &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Multilayer Perceptron" href="mlp.html" />
+    <link rel="prev" title="Getting Started" href="gettingstarted.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="mlp.html" title="Multilayer Perceptron"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Classifying MNIST digits using Logistic Regression</a><ul>
+<li><a class="reference internal" href="#the-model">The Model</a></li>
+<li><a class="reference internal" href="#defining-a-loss-function">Defining a Loss Function</a></li>
+<li><a class="reference internal" href="#creating-a-logisticregression-class">Creating a LogisticRegression class</a></li>
+<li><a class="reference internal" href="#learning-the-model">Learning the Model</a></li>
+<li><a class="reference internal" href="#testing-the-model">Testing the model</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it All Together</a></li>
+<li><a class="reference internal" href="#prediction-using-a-trained-model">Prediction Using a Trained Model</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="gettingstarted.html"
+                        title="previous chapter">Getting Started</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mlp.html"
+                        title="next chapter">Multilayer Perceptron</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/logreg.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="classifying-mnist-digits-using-logistic-regression">
+<span id="logreg"></span><span id="index-0"></span><h1>Classifying MNIST digits using Logistic Regression<a class="headerlink" href="#classifying-mnist-digits-using-logistic-regression" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This sections assumes familiarity with the following Theano
+concepts: <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-shared-variables">shared variables</a> , <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/adding.html#adding-two-scalars">basic arithmetic ops</a> , <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a> ,
+<a class="reference external" href="http://deeplearning.net/software/theano/library/config.html#config.floatX">floatX</a>. If you intend to run the code on GPU also read <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/using_gpu.html">GPU</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/logistic_sgd.py">here</a>.</p>
+</div>
+<p>In this section, we show how Theano can be used to implement the most basic
+classifier: the logistic regression. We start off with a quick primer of the
+model, which serves both as a refresher but also to anchor the notation and
+show how mathematical expressions are mapped onto Theano graphs.</p>
+<p>In the deepest of machine learning traditions, this tutorial will tackle the exciting
+problem of MNIST digit classification.</p>
+<div class="section" id="the-model">
+<h2>The Model<a class="headerlink" href="#the-model" title="Permalink to this headline">¶</a></h2>
+<p>Logistic regression is a probabilistic, linear classifier. It is parametrized
+by a weight matrix <img class="math" src="_images/math/597c3a32b95a572264f23d8ac380dea3e50e0cc0.png" alt="W"/> and a bias vector <img class="math" src="_images/math/30f56f8625112194b5cbc79b78f8213604a50dd2.png" alt="b"/>. Classification is
+done by projecting an input vector onto a set of hyperplanes, each of which
+corresponds to a class. The distance from the input to a hyperplane reflects
+the probability that the input is a member of the corresponding class.</p>
+<p>Mathematically, the probability that an input vector <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> is a member of a
+class <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>, a value of a stochastic variable <img class="math" src="_images/math/a72182d2dbb744cd7cbcd317c4f406b81f3b3351.png" alt="Y"/>, can be written as:</p>
+<div class="math">
+<p><img src="_images/math/5050082fa314b5a9bdfe17dc0e74f84833a4244f.png" alt="P(Y=i|x, W,b) &amp;= softmax_i(W x + b) \\
+              &amp;= \frac {e^{W_i x + b_i}} {\sum_j e^{W_j x + b_j}}"/></p>
+</div><p>The model&#8217;s prediction <img class="math" src="_images/math/346b44c3eba4f4e9dccbf316deac289c338b094d.png" alt="y_{pred}"/> is the class whose probability is maximal, specifically:</p>
+<div class="math">
+<p><img src="_images/math/055c0a5f67073df5611a4070f593253bd4d34f18.png" alt="y_{pred} = {\rm argmax}_i P(Y=i|x,W,b)"/></p>
+</div><p>The code to do this in Theano is the following:</p>
+<p>Since the parameters of the model must maintain a persistent state throughout
+training, we allocate shared variables for <img class="math" src="_images/math/a1985eac7e5454de83301aa5c7d089599a249fc8.png" alt="W,b"/>. This declares them both
+as being symbolic Theano variables, but also initializes their contents. The
+dot and softmax operators are then used to compute the vector <img class="math" src="_images/math/5012954360cdfed09c709e0dfaff7dd1282b83e0.png" alt="P(Y|x,
+W,b)"/>. The result <code class="docutils literal"><span class="pre">p_y_given_x</span></code> is a symbolic variable of vector-type.</p>
+<p>To get the actual model prediction, we can use the <code class="docutils literal"><span class="pre">T.argmax</span></code> operator, which
+will return the index at which <code class="docutils literal"><span class="pre">p_y_given_x</span></code> is maximal (i.e. the class with
+maximum probability).</p>
+<p>Now of course, the model we have defined so far does not do anything useful
+yet, since its parameters are still in their initial state. The following
+section will thus cover how to learn the optimal parameters.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For a complete list of Theano ops, see: <a class="reference external" href="http://deeplearning.net/software/theano/library/tensor/basic.html#basic-tensor-functionality">list of ops</a></p>
+</div>
+</div>
+<div class="section" id="defining-a-loss-function">
+<h2>Defining a Loss Function<a class="headerlink" href="#defining-a-loss-function" title="Permalink to this headline">¶</a></h2>
+<p>Learning optimal model parameters involves minimizing a loss function. In the
+case of multi-class logistic regression, it is very common to use the negative
+log-likelihood as the loss. This is equivalent to maximizing the likelihood of the
+data set <img class="math" src="_images/math/dce7ec6594671e03fd359a8f73b626461ef880ca.png" alt="\cal{D}"/> under the model parameterized by <img class="math" src="_images/math/3308ba7b159fbf8b71d3cdad9c985903755be715.png" alt="\theta"/>. Let
+us first start by defining the likelihood <img class="math" src="_images/math/702f365dbdff59bed10f50df1d638fc16b1462e5.png" alt="\cal{L}"/> and loss
+<img class="math" src="_images/math/4d7389e651f37e009cc84ec6e5be5e293196caf2.png" alt="\ell"/>:</p>
+<div class="math">
+<p><img src="_images/math/cc1e04439060ece1cb7d09918f0fffc71649b9f2.png" alt="\mathcal{L} (\theta=\{W,b\}, \mathcal{D}) =
+  \sum_{i=0}^{|\mathcal{D}|} \log(P(Y=y^{(i)}|x^{(i)}, W,b)) \\
+\ell (\theta=\{W,b\}, \mathcal{D}) = - \mathcal{L} (\theta=\{W,b\}, \mathcal{D})"/></p>
+</div><p>While entire books are dedicated to the topic of minimization, gradient
+descent is by far the simplest method for minimizing arbitrary non-linear
+functions. This tutorial will use the method of stochastic gradient method with
+mini-batches (MSGD). See <a class="reference internal" href="gettingstarted.html#opt-sgd"><span class="std std-ref">Stochastic Gradient Descent</span></a> for more details.</p>
+<p>The following Theano code defines the (symbolic) loss for a given minibatch:</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Even though the loss is formally defined as the <em>sum</em>, over the data set,
+of individual error terms, in practice, we use the <em>mean</em> (<code class="docutils literal"><span class="pre">T.mean</span></code>)
+in the code. This allows for the learning rate choice to be less dependent
+of the minibatch size.</p>
+</div>
+</div>
+<div class="section" id="creating-a-logisticregression-class">
+<h2>Creating a LogisticRegression class<a class="headerlink" href="#creating-a-logisticregression-class" title="Permalink to this headline">¶</a></h2>
+<p>We now have all the tools we need to define a <code class="docutils literal"><span class="pre">LogisticRegression</span></code> class, which
+encapsulates the basic behaviour of logistic regression. The code is very
+similar to what we have covered so far, and should be self explanatory.</p>
+<p>We instantiate this class as follows:</p>
+<p>We start by allocating symbolic variables for the training inputs <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> and
+their corresponding classes <img class="math" src="_images/math/0d88af3f22d86d3087a36c9cac068a87692274ca.png" alt="y"/>. Note that <code class="docutils literal"><span class="pre">x</span></code> and <code class="docutils literal"><span class="pre">y</span></code> are defined
+outside the scope of the <code class="docutils literal"><span class="pre">LogisticRegression</span></code> object. Since the class
+requires the input to build its graph, it is passed as a parameter of the
+<code class="docutils literal"><span class="pre">__init__</span></code> function. This is useful in case you want to connect instances of
+such classes to form a deep network. The output of one layer can be passed as
+the input of the layer above. (This tutorial does not build a multi-layer
+network, but this code will be reused in future tutorials that do.)</p>
+<p>Finally, we define a (symbolic) <code class="docutils literal"><span class="pre">cost</span></code> variable to minimize, using the instance
+method <code class="docutils literal"><span class="pre">classifier.negative_log_likelihood</span></code>.</p>
+<p>Note that <code class="docutils literal"><span class="pre">x</span></code> is an implicit symbolic input to the definition of <code class="docutils literal"><span class="pre">cost</span></code>,
+because the symbolic variables of <code class="docutils literal"><span class="pre">classifier</span></code> were defined in terms of <code class="docutils literal"><span class="pre">x</span></code>
+at initialization.</p>
+</div>
+<div class="section" id="learning-the-model">
+<h2>Learning the Model<a class="headerlink" href="#learning-the-model" title="Permalink to this headline">¶</a></h2>
+<p>To implement MSGD in most programming languages (C/C++, Matlab, Python), one
+would start by manually deriving the expressions for the gradient of the loss
+with respect to the parameters: in this case <img class="math" src="_images/math/580c4df399e5d162c20ad2b21d192d93007fb631.png" alt="\partial{\ell}/\partial{W}"/>,
+and <img class="math" src="_images/math/61507205dc96820cf94f53a38cabae152cc56fa1.png" alt="\partial{\ell}/\partial{b}"/>, This can get pretty tricky for complex
+models, as expressions for <img class="math" src="_images/math/1918e70908342fd96cf1a6ba86b47d6943be1c03.png" alt="\partial{\ell}/\partial{\theta}"/> can get
+fairly complex, especially when taking into account problems of numerical
+stability.</p>
+<p>With Theano, this work is greatly simplified. It performs
+automatic differentiation and applies certain math transforms to improve
+numerical stability.</p>
+<p>To get the gradients <img class="math" src="_images/math/580c4df399e5d162c20ad2b21d192d93007fb631.png" alt="\partial{\ell}/\partial{W}"/> and
+<img class="math" src="_images/math/61507205dc96820cf94f53a38cabae152cc56fa1.png" alt="\partial{\ell}/\partial{b}"/> in Theano, simply do the following:</p>
+<p><code class="docutils literal"><span class="pre">g_W</span></code> and <code class="docutils literal"><span class="pre">g_b</span></code> are symbolic variables, which can be used as part
+of a computation graph. The function <code class="docutils literal"><span class="pre">train_model</span></code>, which performs one step
+of gradient descent, can then be defined as follows:</p>
+<p><code class="docutils literal"><span class="pre">updates</span></code> is a list of pairs. In each pair, the first element is the symbolic
+variable to be updated in the step, and the second element is the symbolic
+function for calculating its new value. Similarly, <code class="docutils literal"><span class="pre">givens</span></code> is a dictionary
+whose keys are symbolic variables and whose values specify
+their replacements during the step. The function <code class="docutils literal"><span class="pre">train_model</span></code> is then defined such
+that:</p>
+<ul class="simple">
+<li>the input is the mini-batch index <code class="docutils literal"><span class="pre">index</span></code> that, together with the batch
+size (which is not an input since it is fixed) defines <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> with
+corresponding labels <img class="math" src="_images/math/0d88af3f22d86d3087a36c9cac068a87692274ca.png" alt="y"/></li>
+<li>the return value is the cost/loss associated with the x, y defined by
+the <code class="docutils literal"><span class="pre">index</span></code></li>
+<li>on every function call, it will first replace <code class="docutils literal"><span class="pre">x</span></code> and <code class="docutils literal"><span class="pre">y</span></code> with the slices
+from the training set specified by <code class="docutils literal"><span class="pre">index</span></code>. Then, it will evaluate the cost
+associated with that minibatch and apply the operations defined by the
+<code class="docutils literal"><span class="pre">updates</span></code> list.</li>
+</ul>
+<p>Each time <code class="docutils literal"><span class="pre">train_model(index)</span></code> is called, it will thus compute and return the
+cost of a minibatch, while also performing a step of MSGD. The entire learning
+algorithm thus consists in looping over all examples in the dataset, considering
+all the examples in one minibatch at a time,
+and repeatedly calling the <code class="docutils literal"><span class="pre">train_model</span></code> function.</p>
+</div>
+<div class="section" id="testing-the-model">
+<h2>Testing the model<a class="headerlink" href="#testing-the-model" title="Permalink to this headline">¶</a></h2>
+<p>As explained in <a class="reference internal" href="gettingstarted.html#opt-learn-classifier"><span class="std std-ref">Learning a Classifier</span></a>, when testing the model we are
+interested in the number of misclassified examples (and not only in the likelihood).
+The <code class="docutils literal"><span class="pre">LogisticRegression</span></code> class therefore has an extra instance method, which
+builds the symbolic graph for retrieving the number of misclassified examples in
+each minibatch.</p>
+<p>The code is as follows:</p>
+<p>We then create a function <code class="docutils literal"><span class="pre">test_model</span></code> and a function <code class="docutils literal"><span class="pre">validate_model</span></code>,
+which we can call to retrieve this value. As you will see shortly,
+<code class="docutils literal"><span class="pre">validate_model</span></code> is key to our early-stopping implementation (see
+<a class="reference internal" href="gettingstarted.html#opt-early-stopping"><span class="std std-ref">Early-Stopping</span></a>). These functions take a minibatch index and compute,
+for the examples in that minibatch, the number that were misclassified by the
+model. The only difference between them is that <code class="docutils literal"><span class="pre">test_model</span></code> draws its
+minibatches from the testing set, while <code class="docutils literal"><span class="pre">validate_model</span></code> draws its from the
+validation set.</p>
+</div>
+<div class="section" id="putting-it-all-together">
+<h2>Putting it All Together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
+<p>The finished product is as follows.</p>
+<p>The user can learn to classify MNIST digits with SGD logistic regression, by typing, from
+within the DeepLearningTutorials folder:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>python code/logistic_sgd.py
+</pre></div>
+</div>
+<p>The output one should expect is of the form:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+epoch 72, minibatch 83/83, validation error 7.510417 %
+     epoch 72, minibatch 83/83, <span class="nb">test</span> error of best model 7.510417 %
+epoch 73, minibatch 83/83, validation error 7.500000 %
+     epoch 73, minibatch 83/83, <span class="nb">test</span> error of best model 7.489583 %
+Optimization <span class="nb">complete</span> with best validation score of 7.500000 %,with <span class="nb">test</span> performance 7.489583 %
+The code run <span class="k">for</span> <span class="m">74</span> epochs, with 1.936983 epochs/sec
+</pre></div>
+</div>
+<p>On an Intel(R) Core(TM)2 Duo CPU E8400 &#64; 3.00 Ghz  the code runs with
+approximately 1.936 epochs/sec and it took 75 epochs to reach a test
+error of 7.489%. On the GPU the code does almost 10.0 epochs/sec. For this
+instance we used a batch size of 600.</p>
+</div>
+<div class="section" id="prediction-using-a-trained-model">
+<h2>Prediction Using a Trained Model<a class="headerlink" href="#prediction-using-a-trained-model" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal"><span class="pre">sgd_optimization_mnist</span></code> serialize and pickle the model each time new
+lowest validation error is reached. We can reload this model and predict
+labels of new data. <code class="docutils literal"><span class="pre">predict</span></code> function shows an example of how
+this could be done.</p>
+<p class="rubric">Footnotes</p>
+<table class="docutils footnote" frame="void" id="f1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[1]</td><td>For smaller datasets and simpler models, more sophisticated descent
+algorithms can be more effective. The sample code
+<a class="reference external" href="http://deeplearning.net/tutorial/code/logistic_cg.py">logistic_cg.py</a>
+demonstrates how to use SciPy&#8217;s conjugate gradient solver with Theano
+on the logistic regression task.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="mlp.html" title="Multilayer Perceptron"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="gettingstarted.html" title="Getting Started"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

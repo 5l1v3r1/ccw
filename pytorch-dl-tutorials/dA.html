@@ -1,0 +1,304 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Denoising Autoencoders (dA) &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Stacked Denoising Autoencoders (SdA)" href="SdA.html" />
+    <link rel="prev" title="Convolutional Neural Networks (LeNet)" href="lenet.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="SdA.html" title="Stacked Denoising Autoencoders (SdA)"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="lenet.html" title="Convolutional Neural Networks (LeNet)"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Denoising Autoencoders (dA)</a><ul>
+<li><a class="reference internal" href="#autoencoders">Autoencoders</a></li>
+<li><a class="reference internal" href="#denoising-autoencoders">Denoising Autoencoders</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it All Together</a></li>
+<li><a class="reference internal" href="#running-the-code">Running the Code</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="lenet.html"
+                        title="previous chapter">Convolutional Neural Networks (LeNet)</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="SdA.html"
+                        title="next chapter">Stacked Denoising Autoencoders (SdA)</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/dA.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="denoising-autoencoders-da">
+<span id="daa"></span><h1>Denoising Autoencoders (dA)<a class="headerlink" href="#denoising-autoencoders-da" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This section assumes the reader has already read through <a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>
+and <a class="reference internal" href="mlp.html"><span class="doc">Multilayer Perceptron</span></a>. Additionally it uses the following Theano functions
+and concepts: <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html?highlight=tanh">T.tanh</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-shared-variables">shared variables</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/adding.html#adding-two-scalars">basic arithmetic ops</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-random-numbers">Random numbers</a>, <a class="reference external" href="http://deeplearning.net/software/theano/library/config.html#config.floatX">floatX</a>. If you intend to run the code on GPU also read <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/using_gpu.html">GPU</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/dA.py">here</a>.</p>
+</div>
+<p>The Denoising Autoencoder (dA) is an extension of a classical
+autoencoder and it was introduced as a building block for deep networks
+in <a class="reference internal" href="references.html#vincent08" id="id1">[Vincent08]</a>. We will start the tutorial with a short discussion on
+<a class="reference internal" href="#autoencoders"><span class="std std-ref">Autoencoders</span></a>.</p>
+<div class="section" id="autoencoders">
+<span id="id2"></span><h2>Autoencoders<a class="headerlink" href="#autoencoders" title="Permalink to this headline">¶</a></h2>
+<p>See section 4.6 of <a class="reference internal" href="references.html#bengio09" id="id3">[Bengio09]</a> for an overview of auto-encoders.
+An autoencoder takes an input <img class="math" src="_images/math/4376c3a3f1fc147f4ceccdbf56585351047a502e.png" alt="\mathbf{x} \in [0,1]^d"/> and first
+maps it (with an <em>encoder)</em> to a hidden representation <img class="math" src="_images/math/be3a6a50757f86aca7f15bbdea1163da6eacb3fa.png" alt="\mathbf{y} \in [0,1]^{d'}"/>
+through a deterministic mapping, e.g.:</p>
+<div class="math">
+<p><img src="_images/math/ac2cc3869b0cba1cab0072fc19c893ce80fa4141.png" alt="\mathbf{y} = s(\mathbf{W}\mathbf{x} + \mathbf{b})"/></p>
+</div><p>Where <img class="math" src="_images/math/546f73ac8fe1d03b648f4cbd5fdfba0af61032e6.png" alt="s"/> is a non-linearity such as the sigmoid. The latent
+representation <img class="math" src="_images/math/0f58924a15d09e7744eebf31c7fcac952fa69ea6.png" alt="\mathbf{y}"/>, or <strong>code</strong> is then mapped back (with a
+<em>decoder)</em> into a <strong>reconstruction</strong> <img class="math" src="_images/math/0d6938748c4492950c99c911cbb631b1761d2b5c.png" alt="\mathbf{z}"/> of the same shape as
+<img class="math" src="_images/math/83ed7b73e861f8a0893e785f532aa17a74680a02.png" alt="\mathbf{x}"/>. The mapping happens through a similar transformation, e.g.:</p>
+<div class="math">
+<p><img src="_images/math/35e0eda9a9130d90cf70b367f3f473c98755a115.png" alt="\mathbf{z} = s(\mathbf{W'}\mathbf{y} + \mathbf{b'})"/></p>
+</div><p>(Here, the prime symbol does not indicate matrix transposition.)
+<img class="math" src="_images/math/0d6938748c4492950c99c911cbb631b1761d2b5c.png" alt="\mathbf{z}"/> should be seen as a prediction of <img class="math" src="_images/math/83ed7b73e861f8a0893e785f532aa17a74680a02.png" alt="\mathbf{x}"/>, given
+the code <img class="math" src="_images/math/0f58924a15d09e7744eebf31c7fcac952fa69ea6.png" alt="\mathbf{y}"/>. Optionally, the weight matrix <img class="math" src="_images/math/bfd38308eaf69badd81ae5c774f05e64df0e7c0d.png" alt="\mathbf{W'}"/>
+of the reverse mapping may be constrained to be the transpose of the forward
+mapping: <img class="math" src="_images/math/a82af82fe06c70971d2132e488fbe4673a590279.png" alt="\mathbf{W'} = \mathbf{W}^T"/>. This is referred to as <em>tied
+weights</em>. The parameters of this model (namely <img class="math" src="_images/math/3d9b6b7e5e4844397da65fc391c581c839f46e99.png" alt="\mathbf{W}"/>,
+<img class="math" src="_images/math/306a62f529f812ab541d3fc0126be7b10ec2f755.png" alt="\mathbf{b}"/>, <img class="math" src="_images/math/c4d430da9796036726954b08766e57d4c6b311e8.png" alt="\mathbf{b'}"/> and, if one doesn&#8217;t use tied weights,
+also <img class="math" src="_images/math/bfd38308eaf69badd81ae5c774f05e64df0e7c0d.png" alt="\mathbf{W'}"/>) are optimized such that the average reconstruction
+error is minimized.</p>
+<p>The reconstruction error can be measured in many ways, depending on the
+appropriate distributional assumptions on the input given the code. The
+traditional <em>squared error</em> <img class="math" src="_images/math/026998f17910a8bf2d636bfc0d45c604fe6ac9c8.png" alt="L(\mathbf{x} \mathbf{z}) = || \mathbf{x} -
+\mathbf{z} ||^2"/>, can be used. If the input is interpreted as either bit
+vectors or vectors of bit probabilities, <em>cross-entropy</em> of the reconstruction
+can be used:</p>
+<div class="math">
+<p><img src="_images/math/c28b6e7949ec8857a86bf8f7e3f68242c96c4312.png" alt="L_{H} (\mathbf{x}, \mathbf{z}) = - \sum^d_{k=1}[\mathbf{x}_k \log
+        \mathbf{z}_k + (1 - \mathbf{x}_k)\log(1 - \mathbf{z}_k)]"/></p>
+</div><p>The hope is that the code <img class="math" src="_images/math/0f58924a15d09e7744eebf31c7fcac952fa69ea6.png" alt="\mathbf{y}"/> is a <em>distributed</em> representation
+that captures the coordinates along the main factors of variation in the data.
+This is similar to the way the projection on principal components would capture
+the main factors of variation in the data. Indeed, if there is one linear
+hidden layer (the <em>code)</em> and the mean squared error criterion is used to train
+the network, then the <img class="math" src="_images/math/06f3d34d39d42ff670798396574715174df4cf31.png" alt="k"/> hidden units learn to project the input in the
+span of the first <img class="math" src="_images/math/06f3d34d39d42ff670798396574715174df4cf31.png" alt="k"/> principal components of the data. If the hidden
+layer is non-linear, the auto-encoder behaves differently from PCA, with the
+ability to capture multi-modal aspects of the input distribution. The departure
+from PCA becomes even more important when we consider <em>stacking multiple
+encoders</em> (and their corresponding decoders) when building a deep auto-encoder
+<a class="reference internal" href="references.html#hinton06" id="id4">[Hinton06]</a>.</p>
+<p>Because <img class="math" src="_images/math/0f58924a15d09e7744eebf31c7fcac952fa69ea6.png" alt="\mathbf{y}"/> is viewed as a lossy compression of
+<img class="math" src="_images/math/83ed7b73e861f8a0893e785f532aa17a74680a02.png" alt="\mathbf{x}"/>, it cannot be a good (small-loss) compression for all
+<img class="math" src="_images/math/83ed7b73e861f8a0893e785f532aa17a74680a02.png" alt="\mathbf{x}"/>. Optimization makes it a good compression for training
+examples, and hopefully for other inputs as well, but not for arbitrary inputs.
+That is the sense in which an auto-encoder generalizes: it gives low
+reconstruction error on test examples from the same distribution as the
+training examples, but generally high reconstruction error on samples randomly
+chosen from the input space.</p>
+<p>We want to implement an auto-encoder using Theano, in the form of a class, that
+could be afterwards used in constructing a stacked autoencoder. The first step
+is to create shared variables for the parameters of the autoencoder
+<img class="math" src="_images/math/3d9b6b7e5e4844397da65fc391c581c839f46e99.png" alt="\mathbf{W}"/>, <img class="math" src="_images/math/306a62f529f812ab541d3fc0126be7b10ec2f755.png" alt="\mathbf{b}"/> and <img class="math" src="_images/math/c4d430da9796036726954b08766e57d4c6b311e8.png" alt="\mathbf{b'}"/>. (Since we are
+using tied weights in this tutorial, <img class="math" src="_images/math/6dfa4374e68be386bafd976ace5d118b3ab1ba8e.png" alt="\mathbf{W}^T"/> will be used for
+<img class="math" src="_images/math/bfd38308eaf69badd81ae5c774f05e64df0e7c0d.png" alt="\mathbf{W'}"/>):</p>
+<p>Note that we pass the symbolic <code class="docutils literal"><span class="pre">input</span></code> to the autoencoder as a parameter.
+This is so that we can concatenate layers of autoencoders to form a deep
+network: the symbolic output (the <img class="math" src="_images/math/0f58924a15d09e7744eebf31c7fcac952fa69ea6.png" alt="\mathbf{y}"/> above) of layer <img class="math" src="_images/math/06f3d34d39d42ff670798396574715174df4cf31.png" alt="k"/> will
+be the symbolic input of layer <img class="math" src="_images/math/86eb0a8aacf12f00ed8a1192499f341878640026.png" alt="k+1"/>.</p>
+<p>Now we can express the computation of the latent representation and of the reconstructed
+signal:</p>
+<p>And using these functions we can compute the cost and the updates of
+one stochastic gradient descent step:</p>
+<p>We can now define a function that applied iteratively will update the
+parameters <code class="docutils literal"><span class="pre">W</span></code>, <code class="docutils literal"><span class="pre">b</span></code> and <code class="docutils literal"><span class="pre">b_prime</span></code> such that the
+reconstruction cost is approximately minimized.</p>
+<p>If there is no constraint besides minimizing the reconstruction error, one
+might expect an auto-encoder with <img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> inputs and an encoding of dimension
+<img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> (or greater) to learn the identity function, merely mapping an input
+to its copy. Such an autoencoder would not differentiate test examples (from
+the training distribution) from other input configurations.</p>
+<p>Surprisingly,
+experiments reported in <a class="reference internal" href="references.html#bengio07" id="id5">[Bengio07]</a> suggest that, in practice, when trained
+with stochastic gradient descent, non-linear auto-encoders with more hidden
+units than inputs (called overcomplete) yield useful representations. (Here,
+&#8220;useful&#8221; means that a network taking the encoding as input has low
+classification error.)</p>
+<p>A simple explanation is that stochastic gradient descent with early stopping is
+similar to an L2 regularization of the parameters. To achieve perfect
+reconstruction of continuous inputs, a one-hidden layer auto-encoder with
+non-linear hidden units (exactly like in the above code) needs very small
+weights in the first (encoding) layer, to bring the non-linearity of the hidden
+units into their linear regime, and very large weights in the second (decoding)
+layer. With binary inputs, very large weights are also needed to completely
+minimize the reconstruction error. Since the implicit or explicit
+regularization makes it difficult to reach large-weight solutions, the
+optimization algorithm finds encodings which only work well for examples
+similar to those in the training set, which is what we want. It means that the
+<em>representation is exploiting statistical regularities present in the training
+set,</em> rather than merely learning to replicate the input.</p>
+<p>There are other ways by which an auto-encoder with more hidden units than inputs
+could be prevented from learning the identity function, capturing something
+useful about the input in its hidden representation. One is the addition of
+<em>sparsity</em> (forcing many of the hidden units to be zero or near-zero). Sparsity
+has been exploited very successfully by many <a class="reference internal" href="references.html#ranzato07" id="id6">[Ranzato07]</a> <a class="reference internal" href="references.html#lee08" id="id7">[Lee08]</a>. Another is
+to add randomness in the transformation from input to reconstruction. This
+technique is used in Restricted Boltzmann Machines (discussed later in
+<a class="reference internal" href="rbm.html#rbm"><span class="std std-ref">Restricted Boltzmann Machines (RBM)</span></a>), as well as in Denoising Auto-Encoders, discussed below.</p>
+</div>
+<div class="section" id="denoising-autoencoders">
+<span id="da"></span><h2>Denoising Autoencoders<a class="headerlink" href="#denoising-autoencoders" title="Permalink to this headline">¶</a></h2>
+<p>The idea behind denoising autoencoders is simple. In order to force
+the hidden layer to discover more robust features and prevent it
+from simply learning the identity, we train the
+autoencoder to <em>reconstruct the input from a corrupted version of it</em>.</p>
+<p>The denoising auto-encoder is a stochastic version of the auto-encoder.
+Intuitively, a denoising auto-encoder does two things: try to encode the input
+(preserve the information about the input), and try to undo the effect of a
+corruption process stochastically applied to the input of the auto-encoder. The
+latter can only be done by capturing the statistical dependencies between the
+inputs. The denoising auto-encoder can be understood from different
+perspectives (the manifold learning perspective, stochastic operator
+perspective, bottom-up &#8211; information theoretic perspective, top-down &#8211;
+generative model perspective), all of which are explained in <a class="reference internal" href="references.html#vincent08" id="id8">[Vincent08]</a>. See
+also section 7.2 of <a class="reference internal" href="references.html#bengio09" id="id9">[Bengio09]</a> for an overview of auto-encoders.</p>
+<p>In <a class="reference internal" href="references.html#vincent08" id="id10">[Vincent08]</a>, the stochastic corruption process randomly sets some of the
+inputs (as many as half of them) to zero. Hence the denoising auto-encoder is
+trying to <em>predict the corrupted (i.e. missing) values from the uncorrupted
+(i.e., non-missing) values</em>, for randomly selected subsets of missing patterns.
+Note how being able to predict any subset of variables from the rest is a
+sufficient condition for completely capturing the joint distribution between a
+set of variables (this is how Gibbs sampling works).</p>
+<p>To convert the autoencoder class into a denoising autoencoder class, all we
+need to do is to add a stochastic corruption step operating on the input. The input can be
+corrupted in many ways, but in this tutorial we will stick to the original
+corruption mechanism of randomly masking entries of the input by making
+them zero. The code below
+does just that:</p>
+<p>In the stacked autoencoder class (<a class="reference internal" href="SdA.html#stacked-autoencoders"><span class="std std-ref">Stacked Autoencoders</span></a>) the weights of
+the <code class="docutils literal"><span class="pre">dA</span></code> class have to be shared with those of a corresponding sigmoid layer.
+For this reason, the constructor of the <code class="docutils literal"><span class="pre">dA</span></code> also gets Theano variables
+pointing to the shared parameters. If those parameters are left to <code class="docutils literal"><span class="pre">None</span></code>,
+new ones will be constructed.</p>
+<p>The final denoising autoencoder class becomes:</p>
+</div>
+<div class="section" id="putting-it-all-together">
+<h2>Putting it All Together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
+<p>It is easy now to construct an instance of our <code class="docutils literal"><span class="pre">dA</span></code> class and train
+it.</p>
+<p>In order to get a feeling of what the network learned we are going to
+plot the filters (defined by the weight matrix). Bear in mind, however,
+that this does not provide the entire story,
+since we neglect the biases and plot the weights up to a multiplicative
+constant (weights are converted to values between 0 and 1).</p>
+<p>To plot our filters we will need the help of <code class="docutils literal"><span class="pre">tile_raster_images</span></code> (see
+<a class="reference internal" href="utilities.html#how-to-plot"><span class="std std-ref">Plotting Samples and Filters</span></a>) so we urge the reader to study it. Also
+using the help of the Python Image Library, the following lines of code will
+save the filters as an image:</p>
+</div>
+<div class="section" id="running-the-code">
+<h2>Running the Code<a class="headerlink" href="#running-the-code" title="Permalink to this headline">¶</a></h2>
+<p>To run the code:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>python dA.py
+</pre></div>
+</div>
+<p>The resulted filters when we do not use any noise are:</p>
+<div class="figure align-center">
+<img alt="_images/filters_corruption_0.png" src="_images/filters_corruption_0.png" />
+</div>
+<p>The filters for 30 percent noise:</p>
+<div class="figure align-center">
+<img alt="_images/filters_corruption_30.png" src="_images/filters_corruption_30.png" />
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="SdA.html" title="Stacked Denoising Autoencoders (SdA)"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="lenet.html" title="Convolutional Neural Networks (LeNet)"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

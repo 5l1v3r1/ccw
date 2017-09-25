@@ -1,0 +1,331 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Multilayer Perceptron &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Convolutional Neural Networks (LeNet)" href="lenet.html" />
+    <link rel="prev" title="Classifying MNIST digits using Logistic Regression" href="logreg.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="lenet.html" title="Convolutional Neural Networks (LeNet)"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="logreg.html" title="Classifying MNIST digits using Logistic Regression"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Multilayer Perceptron</a><ul>
+<li><a class="reference internal" href="#the-model">The Model</a></li>
+<li><a class="reference internal" href="#going-from-logistic-regression-to-mlp">Going from logistic regression to MLP</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it All Together</a></li>
+<li><a class="reference internal" href="#tips-and-tricks-for-training-mlps">Tips and Tricks for training MLPs</a><ul>
+<li><a class="reference internal" href="#nonlinearity">Nonlinearity</a></li>
+<li><a class="reference internal" href="#weight-initialization">Weight initialization</a></li>
+<li><a class="reference internal" href="#learning-rate">Learning rate</a></li>
+<li><a class="reference internal" href="#number-of-hidden-units">Number of hidden units</a></li>
+<li><a class="reference internal" href="#regularization-parameter">Regularization parameter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="logreg.html"
+                        title="previous chapter">Classifying MNIST digits using Logistic Regression</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="lenet.html"
+                        title="next chapter">Convolutional Neural Networks (LeNet)</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/mlp.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="multilayer-perceptron">
+<span id="mlp"></span><span id="index-0"></span><h1>Multilayer Perceptron<a class="headerlink" href="#multilayer-perceptron" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This section assumes the reader has already read through <a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>.
+Additionally, it uses the following new Theano functions and concepts:
+<a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html?highlight=tanh">T.tanh</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-shared-variables">shared variables</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/adding.html#adding-two-scalars">basic arithmetic ops</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a>,
+<a class="reference internal" href="gettingstarted.html#l1-l2-regularization"><span class="std std-ref">L1 and L2 regularization</span></a>, <a class="reference external" href="http://deeplearning.net/software/theano/library/config.html#config.floatX">floatX</a>. If you intend to run the
+code on GPU also read <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/using_gpu.html">GPU</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/mlp.py">here</a>.</p>
+</div>
+<p>The next architecture we are going to present using Theano is the
+single-hidden-layer Multi-Layer Perceptron (MLP). An MLP can be viewed as a
+logistic regression classifier where the input is first transformed using a
+learnt non-linear transformation <img class="math" src="_images/math/0163a964536f26c4e5d4606b03e11375eda489c6.png" alt="\Phi"/>. This transformation projects the
+input data into a space where it becomes linearly separable. This intermediate
+layer is referred to as a <strong>hidden layer</strong>. A single hidden layer is sufficient
+to make MLPs a <strong>universal approximator</strong>. However we will see later on that
+there are substantial benefits to using many such hidden layers, i.e. the very
+premise of <strong>deep learning</strong>. See these course notes for an <a class="reference external" href="http://www.iro.umontreal.ca/~pift6266/H10/notes/mlp.html">introduction to
+MLPs, the back-propagation algorithm, and how to train MLPs</a>.</p>
+<p>This tutorial will again tackle the problem of MNIST digit classification.</p>
+<div class="section" id="the-model">
+<h2>The Model<a class="headerlink" href="#the-model" title="Permalink to this headline">¶</a></h2>
+<p>An MLP (or Artificial Neural Network - ANN) with a single hidden layer
+can be represented graphically as
+follows:</p>
+<div class="figure align-center">
+<img alt="_images/mlp.png" src="_images/mlp.png" />
+</div>
+<p>Formally, a one-hidden-layer MLP is a function <img class="math" src="_images/math/d2ee7727514d022ee00a8d9f65812db6a384516f.png" alt="f: R^D \rightarrow
+R^L"/>, where <img class="math" src="_images/math/4283401abba2cc550eebdd6771a0aff73c844cd6.png" alt="D"/> is the size of input vector <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> and <img class="math" src="_images/math/5424c902e3fd25fb9664147ed96dbb18364f209e.png" alt="L"/> is
+the size of the output vector <img class="math" src="_images/math/daf58df3a16e66e63ff610fcf983702d96ae3da2.png" alt="f(x)"/>, such that, in matrix notation:</p>
+<div class="math">
+<p><img src="_images/math/3a2ec7130d5aa71ae7ad94bcfdc805d1c06e1d4b.png" alt="f(x) = G( b^{(2)} + W^{(2)}( s( b^{(1)} + W^{(1)} x))),"/></p>
+</div><p>with bias vectors <img class="math" src="_images/math/51fcab69af81244941dc0d24baf3e13589cf0ba9.png" alt="b^{(1)}"/>, <img class="math" src="_images/math/c593e5940637366d4482fcc7a4096b5fb577c4c7.png" alt="b^{(2)}"/>; weight matrices
+<img class="math" src="_images/math/82dde8ffb50df004a6394749fdb4edbebe029cfc.png" alt="W^{(1)}"/>, <img class="math" src="_images/math/040bedff85911bfe5c49b9ba95d43202c223b9db.png" alt="W^{(2)}"/> and activation functions <img class="math" src="_images/math/735af20a72260498e71fbe0febd4aa11309bc741.png" alt="G"/> and <img class="math" src="_images/math/546f73ac8fe1d03b648f4cbd5fdfba0af61032e6.png" alt="s"/>.</p>
+<p>The vector <img class="math" src="_images/math/7a468eb6eeb671290811c73338c1a3d5918493d1.png" alt="h(x) = \Phi(x) = s(b^{(1)} + W^{(1)} x)"/> constitutes the hidden layer.
+<img class="math" src="_images/math/999315a9f5975bb9db4edd993b491889df87b4d1.png" alt="W^{(1)} \in R^{D \times D_h}"/> is the weight matrix connecting the input vector
+to the hidden layer.  Each column <img class="math" src="_images/math/73ca7a3819939fb1cc51d6465ef246238f1fb42c.png" alt="W^{(1)}_{\cdot i}"/> represents the weights
+from the input units to the i-th hidden unit. Typical choices for <img class="math" src="_images/math/546f73ac8fe1d03b648f4cbd5fdfba0af61032e6.png" alt="s"/>
+include <img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/>, with <img class="math" src="_images/math/6e358522259bf668d2d48ffd119d2c1bd14fc33e.png" alt="tanh(a)=(e^a-e^{-a})/(e^a+e^{-a})"/>,
+or the logistic <img class="math" src="_images/math/f903b05258c06051acb9c53364063469889eccfd.png" alt="sigmoid"/> function, with <img class="math" src="_images/math/0f3b7d1a285a08e598f109c3e619ba86605c8988.png" alt="sigmoid(a)=1/(1+e^{-a})"/>. We will be using
+<img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/> in this tutorial because it typically yields to faster training
+(and sometimes also to better local minima). Both the <img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/>
+and <img class="math" src="_images/math/f903b05258c06051acb9c53364063469889eccfd.png" alt="sigmoid"/> are scalar-to-scalar functions but their natural
+extension to vectors and tensors consists in applying them element-wise
+(e.g. separately on each element of the vector, yielding a same-size vector).</p>
+<p>The output vector is then obtained as: <img class="math" src="_images/math/01cdc9bb2174e7298dd343980d4394d3fb72c2e8.png" alt="o(x) = G(b^{(2)} + W^{(2)} h(x))"/>.
+The reader should recognize the form we already used for
+<a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>. As before,
+class-membership probabilities can be obtained by choosing <img class="math" src="_images/math/735af20a72260498e71fbe0febd4aa11309bc741.png" alt="G"/> as the
+<img class="math" src="_images/math/bd6fb59d205c449fac46da331313522c409dce5e.png" alt="softmax"/> function (in the case of multi-class classification).</p>
+<p>To train an MLP, we learn <strong>all</strong> parameters of the model, and here we use
+<a class="reference internal" href="gettingstarted.html#opt-sgd"><span class="std std-ref">Stochastic Gradient Descent</span></a> with minibatches.
+The set of parameters to learn is the set <img class="math" src="_images/math/c5ecf537548b620065561c599829f56aa4dc45fc.png" alt="\theta =
+\{W^{(2)},b^{(2)},W^{(1)},b^{(1)}\}"/>.  Obtaining the gradients
+<img class="math" src="_images/math/1918e70908342fd96cf1a6ba86b47d6943be1c03.png" alt="\partial{\ell}/\partial{\theta}"/> can be achieved through the
+<strong>backpropagation algorithm</strong> (a special case of the chain-rule of derivation).
+Thankfully, since Theano performs automatic differentiation, we will not need to
+cover this in the tutorial!</p>
+</div>
+<div class="section" id="going-from-logistic-regression-to-mlp">
+<h2>Going from logistic regression to MLP<a class="headerlink" href="#going-from-logistic-regression-to-mlp" title="Permalink to this headline">¶</a></h2>
+<p>This tutorial will focus on a single-hidden-layer MLP. We start off by
+implementing a class that will represent a hidden layer. To
+construct the MLP we will then only need to throw a logistic regression
+layer on top.</p>
+<p>The initial values for the weights of a hidden layer <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/> should be uniformly
+sampled from a symmetric interval that depends on the activation function. For
+<img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/> activation function results obtained in <a class="reference internal" href="references.html#xavier10" id="id1">[Xavier10]</a> show that the
+interval should be
+<img class="math" src="_images/math/1dfc4a270526d7a1f3411a25a81a580f05b61d84.png" alt="[-\sqrt{\frac{6}{fan_{in}+fan_{out}}},\sqrt{\frac{6}{fan_{in}+fan_{out}}}]"/>, where
+<img class="math" src="_images/math/f90faf9f9f9f300ae77770b4068c5e7a98203d23.png" alt="fan_{in}"/> is the number of units in the <img class="math" src="_images/math/f4e575278c6553d654854c682fcd5c07840b91b3.png" alt="(i-1)"/>-th layer,
+and <img class="math" src="_images/math/9f50fae947f00dc4fed55c441c83023eccd879cf.png" alt="fan_{out}"/> is the number of units in the <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>-th layer. For
+the sigmoid function the interval is <img class="math" src="_images/math/67fb8dc5b0626d0673435da43542cab7e3453c38.png" alt="[-4\sqrt{\frac{6}{fan_{in}+fan_{out}}},4\sqrt{\frac{6}{fan_{in}+fan_{out}}}]"/>.
+This initialization ensures that, early in training, each neuron operates in a
+regime of its activation function where information can easily be propagated
+both upward (activations flowing from inputs to outputs) and backward
+(gradients flowing from outputs to inputs).</p>
+<p>Note that we used a given non-linear function as the activation function of the hidden layer. By default this is <code class="docutils literal"><span class="pre">tanh</span></code>, but in many cases we might want
+to use something else.</p>
+<p>If you look into theory this class implements the graph that computes
+the hidden layer value <img class="math" src="_images/math/7a468eb6eeb671290811c73338c1a3d5918493d1.png" alt="h(x) = \Phi(x) = s(b^{(1)} + W^{(1)} x)"/>.
+If you give this graph as input to the <code class="docutils literal"><span class="pre">LogisticRegression</span></code> class,
+implemented in the previous tutorial <a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>, you get the output
+of the MLP. You can see this in the following short implementation of
+the <code class="docutils literal"><span class="pre">MLP</span></code> class.</p>
+<p>In this tutorial we will also use L1 and L2 regularization (see
+<a class="reference internal" href="gettingstarted.html#l1-l2-regularization"><span class="std std-ref">L1 and L2 regularization</span></a>). For this, we need to compute the L1 norm and the squared L2
+norm of the weights <img class="math" src="_images/math/2d3bf3ec06268c6b7ccb8460f821fae9144eab0a.png" alt="W^{(1)}, W^{(2)}"/>.</p>
+<p>As before, we train this model using stochastic gradient descent with
+mini-batches. The difference is that we modify the cost function to include the
+regularization term. <code class="docutils literal"><span class="pre">L1_reg</span></code> and <code class="docutils literal"><span class="pre">L2_reg</span></code> are the hyperparameters
+controlling the weight of these regularization terms in the total cost function.
+The code that computes the new cost is:</p>
+<p>We then update the parameters of the model using the gradient. This code is
+almost identical to the one for logistic regression. Only the number of
+parameters differ. To get around this ( and write code that could work
+for any number of parameters) we will use the list of parameters that
+we created with the model <code class="docutils literal"><span class="pre">params</span></code> and parse it, computing a gradient
+at each step.</p>
+</div>
+<div class="section" id="putting-it-all-together">
+<h2>Putting it All Together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
+<p>Having covered the basic concepts, writing an MLP class becomes quite easy.
+The code below shows how this can be done, in a way which is analogous to our previous logistic regression implementation.</p>
+<p>The user can then run the code by calling:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>python code/mlp.py
+</pre></div>
+</div>
+<p>The output one should expect is of the form:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>Optimization complete. Best validation score of 1.690000 % obtained at iteration 2070000, with <span class="nb">test</span> performance 1.650000 %
+The code <span class="k">for</span> file mlp.py ran <span class="k">for</span> 97.34m
+</pre></div>
+</div>
+<p>On an Intel(R) Core(TM) i7-2600K CPU &#64; 3.40GHz the code runs with
+approximately 10.3 epoch/minute and it took 828 epochs to reach a test
+error of 1.65%.</p>
+<p>To put this into perspective, we refer the reader to the results section of <a class="reference external" href="http://yann.lecun.com/exdb/mnist">this</a>  page.</p>
+</div>
+<div class="section" id="tips-and-tricks-for-training-mlps">
+<h2>Tips and Tricks for training MLPs<a class="headerlink" href="#tips-and-tricks-for-training-mlps" title="Permalink to this headline">¶</a></h2>
+<p>There are several hyper-parameters in the above code, which are not (and,
+generally speaking, cannot be) optimized by gradient descent. Strictly speaking,
+finding an optimal set of values for these
+hyper-parameters is not a feasible problem. First, we can&#8217;t simply optimize
+each of them independently. Second, we cannot readily apply gradient
+techniques that we described previously (partly because some parameters are
+discrete values and others are real-valued). Third, the optimization problem
+is not convex and finding a (local) minimum would involve a non-trivial
+amount of work.</p>
+<p>The good news is that over the last 25 years, researchers have devised various
+rules of thumb for choosing hyper-parameters in a neural network. A very
+good overview of these tricks can be found in <a class="reference external" href="http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf">Efficient
+BackProp</a> by Yann LeCun,
+Leon Bottou, Genevieve Orr, and Klaus-Robert Mueller. In here, we summarize
+the same issues, with an emphasis on the parameters and techniques that we
+actually used in our code.</p>
+<div class="section" id="nonlinearity">
+<h3>Nonlinearity<a class="headerlink" href="#nonlinearity" title="Permalink to this headline">¶</a></h3>
+<p>Two of the most common ones are the <img class="math" src="_images/math/f903b05258c06051acb9c53364063469889eccfd.png" alt="sigmoid"/> and the <img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/> function. For
+reasons explained in <a class="reference external" href="http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf">Section 4.4</a>, nonlinearities that
+are symmetric around the origin are preferred because they tend to produce
+zero-mean inputs to the next layer (which is a desirable property).
+Empirically, we have observed that the <img class="math" src="_images/math/60102a46429b2839312e116a43551fd94f3c3160.png" alt="tanh"/> has better convergence
+properties.</p>
+</div>
+<div class="section" id="weight-initialization">
+<h3>Weight initialization<a class="headerlink" href="#weight-initialization" title="Permalink to this headline">¶</a></h3>
+<p>At initialization we want the weights to be small enough around the origin
+so that the activation function operates in its linear regime, where gradients are
+the largest. Other desirable properties, especially for deep networks,
+are to conserve variance of the activation as well as variance of back-propagated gradients from layer to layer.
+This allows information to flow well upward and downward in the network and
+reduces discrepancies between layers.
+Under some assumptions, a compromise between these two constraints leads to the following
+initialization: <img class="math" src="_images/math/55b43defc5994f5f6f1a84be5266083e1201a623.png" alt="uniform[-\frac{\sqrt{6}}{\sqrt{fan_{in}+fan_{out}}},\frac{\sqrt{6}}{\sqrt{fan_{in}+fan_{out}}}]"/>
+for tanh and <img class="math" src="_images/math/2ee204005e40cd0997def1f9d4171915c4df4dd8.png" alt="uniform[-4*\frac{\sqrt{6}}{\sqrt{fan_{in}+fan_{out}}},4*\frac{\sqrt{6}}{\sqrt{fan_{in}+fan_{out}}}]"/>
+for sigmoid. Where <img class="math" src="_images/math/f90faf9f9f9f300ae77770b4068c5e7a98203d23.png" alt="fan_{in}"/> is the number of inputs and <img class="math" src="_images/math/9f50fae947f00dc4fed55c441c83023eccd879cf.png" alt="fan_{out}"/> the number of hidden units.
+For mathematical considerations please refer to <a class="reference internal" href="references.html#xavier10" id="id2">[Xavier10]</a>.</p>
+</div>
+<div class="section" id="learning-rate">
+<h3>Learning rate<a class="headerlink" href="#learning-rate" title="Permalink to this headline">¶</a></h3>
+<p>There is a great deal of literature on choosing a good learning rate. The
+simplest solution is to simply have a constant rate. Rule of thumb: try
+several log-spaced values (<img class="math" src="_images/math/f0ff89cee8d987ffc585ac4980c4b2ab463aaa6f.png" alt="10^{-1},10^{-2},\ldots"/>) and narrow the
+(logarithmic) grid search to the region where you obtain the lowest
+validation error.</p>
+<p>Decreasing the learning rate over time is sometimes a good idea. One simple
+rule for doing that is <img class="math" src="_images/math/629d6b4778a7843d62c262506b69d2be175fc01a.png" alt="\frac{\mu_0}{1 + d\times t}"/> where
+<img class="math" src="_images/math/9d88ca0f853cc5ab71c18f9bc8ce13c3d529b352.png" alt="\mu_0"/> is the initial rate (chosen, perhaps, using the grid search
+technique explained above), <img class="math" src="_images/math/22261ffd0b12ed32e340ad53221f0f2d64c20e9c.png" alt="d"/> is a so-called &#8220;decrease constant&#8221;
+which controls the rate at which the learning rate decreases (typically, a
+smaller positive number, <img class="math" src="_images/math/b17159144370fa7d8b7a8fadb5d675680447e7fb.png" alt="10^{-3}"/> and smaller) and <img class="math" src="_images/math/4129d14426df0cf11bade24233b1eeb71fc842a3.png" alt="t"/> is the
+epoch/stage.</p>
+<p><a class="reference external" href="http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf">Section 4.7</a> details
+procedures for choosing a learning rate for each parameter (weight) in our
+network and for choosing them adaptively based on the error of the
+classifier.</p>
+</div>
+<div class="section" id="number-of-hidden-units">
+<h3>Number of hidden units<a class="headerlink" href="#number-of-hidden-units" title="Permalink to this headline">¶</a></h3>
+<p>This hyper-parameter is very much dataset-dependent. Vaguely speaking, the
+more complicated the input distribution is, the more capacity the network
+will require to model it, and so the larger the number of hidden units that
+will be needed (note that the number of weights in a layer, perhaps a more direct
+measure of capacity, is <img class="math" src="_images/math/54d2c3ba7c9cd6a9486e4cd144df5dce8e87230d.png" alt="D\times D_h"/> (recall <img class="math" src="_images/math/4283401abba2cc550eebdd6771a0aff73c844cd6.png" alt="D"/> is the number of
+inputs and <img class="math" src="_images/math/6d82977604f58b183dcfecf20c8760dfaa315ef2.png" alt="D_h"/> is the number of hidden units).</p>
+<p>Unless we employ some regularization scheme (early stopping or L1/L2
+penalties), a typical number of hidden  units vs. generalization performance graph will be U-shaped.</p>
+</div>
+<div class="section" id="regularization-parameter">
+<h3>Regularization parameter<a class="headerlink" href="#regularization-parameter" title="Permalink to this headline">¶</a></h3>
+<p>Typical values to try for the L1/L2 regularization parameter <img class="math" src="_images/math/d0abe3e634764dbebcca97c8bc3cf90920029a0c.png" alt="\lambda"/>
+are <img class="math" src="_images/math/5b164ded86fe9caf3d262a86d027546da30c01b0.png" alt="10^{-2},10^{-3},\ldots"/>. In the framework that we described so
+far, optimizing this parameter will not lead to significantly better
+solutions, but is worth exploring nonetheless.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="lenet.html" title="Convolutional Neural Networks (LeNet)"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="logreg.html" title="Classifying MNIST digits using Logistic Regression"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

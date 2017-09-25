@@ -1,0 +1,250 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Stacked Denoising Autoencoders (SdA) &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Restricted Boltzmann Machines (RBM)" href="rbm.html" />
+    <link rel="prev" title="Denoising Autoencoders (dA)" href="dA.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="rbm.html" title="Restricted Boltzmann Machines (RBM)"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dA.html" title="Denoising Autoencoders (dA)"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Stacked Denoising Autoencoders (SdA)</a><ul>
+<li><a class="reference internal" href="#stacked-autoencoders">Stacked Autoencoders</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it all together</a></li>
+<li><a class="reference internal" href="#running-the-code">Running the Code</a></li>
+<li><a class="reference internal" href="#tips-and-tricks">Tips and Tricks</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="dA.html"
+                        title="previous chapter">Denoising Autoencoders (dA)</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="rbm.html"
+                        title="next chapter">Restricted Boltzmann Machines (RBM)</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/SdA.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="stacked-denoising-autoencoders-sda">
+<span id="sda"></span><h1>Stacked Denoising Autoencoders (SdA)<a class="headerlink" href="#stacked-denoising-autoencoders-sda" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This section assumes you have already read through <a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>
+and <a class="reference internal" href="mlp.html"><span class="doc">Multilayer Perceptron</span></a>. Additionally it uses the following Theano functions
+and concepts: <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html?highlight=tanh">T.tanh</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-shared-variables">shared variables</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/adding.html#adding-two-scalars">basic arithmetic ops</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-random-numbers">Random numbers</a>, <a class="reference external" href="http://deeplearning.net/software/theano/library/config.html#config.floatX">floatX</a>. If you intend to run the code on GPU also read <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/using_gpu.html">GPU</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/SdA.py">here</a>.</p>
+</div>
+<p>The Stacked Denoising Autoencoder (SdA) is an extension of the stacked
+autoencoder <a class="reference internal" href="references.html#bengio07" id="id1">[Bengio07]</a> and it was introduced in <a class="reference internal" href="references.html#vincent08" id="id2">[Vincent08]</a>.</p>
+<p>This tutorial builds on the previous tutorial <a class="reference internal" href="dA.html#da"><span class="std std-ref">Denoising Autoencoders</span></a>.
+Especially if you do not have experience with autoencoders, we recommend reading it
+before going any further.</p>
+<div class="section" id="stacked-autoencoders">
+<span id="id3"></span><h2>Stacked Autoencoders<a class="headerlink" href="#stacked-autoencoders" title="Permalink to this headline">¶</a></h2>
+<p>Denoising autoencoders can be stacked to form a deep network by
+feeding the latent representation (output code)
+of the denoising autoencoder found on the layer
+below as input to the current layer. The <strong>unsupervised pre-training</strong> of such an
+architecture is done one layer at a time. Each layer is trained as
+a denoising autoencoder by minimizing the error in reconstructing its input
+(which is the output code of the previous layer).
+Once the first <img class="math" src="_images/math/06f3d34d39d42ff670798396574715174df4cf31.png" alt="k"/> layers
+are trained, we can train the <img class="math" src="_images/math/86eb0a8aacf12f00ed8a1192499f341878640026.png" alt="k+1"/>-th layer because we can now
+compute the code or latent representation from the layer below.</p>
+<p>Once all layers are pre-trained, the network goes through a second stage
+of training called <strong>fine-tuning</strong>. Here we consider <strong>supervised fine-tuning</strong>
+where we want to minimize prediction error on a supervised task.
+For this, we first add a logistic regression
+layer on top of the network (more precisely on the output code of the
+output layer). We then
+train the entire network as we would train a multilayer
+perceptron. At this point, we only consider the encoding parts of
+each auto-encoder.
+This stage is supervised, since now we use the target class during
+training. (See the <a class="reference internal" href="mlp.html#mlp"><span class="std std-ref">Multilayer Perceptron</span></a> for details on the multilayer perceptron.)</p>
+<p>This can be easily implemented in Theano, using the class defined
+previously for a denoising autoencoder. We can see the stacked denoising
+autoencoder as having two facades: a list of
+autoencoders, and an MLP. During pre-training we use the first facade, i.e., we treat our model
+as a list of autoencoders, and train each autoencoder seperately. In the
+second stage of training, we use the second facade. These two facades are linked because:</p>
+<ul class="simple">
+<li>the autoencoders and the sigmoid layers of the MLP share parameters, and</li>
+<li>the latent representations computed by intermediate layers of the MLP are fed as input to the autoencoders.</li>
+</ul>
+<p><code class="docutils literal"><span class="pre">self.sigmoid_layers</span></code> will store the sigmoid layers of the MLP facade, while
+<code class="docutils literal"><span class="pre">self.dA_layers</span></code> will store  the denoising autoencoder associated with the layers of the MLP.</p>
+<p>Next, we construct <code class="docutils literal"><span class="pre">n_layers</span></code> sigmoid layers and <code class="docutils literal"><span class="pre">n_layers</span></code> denoising
+autoencoders, where <code class="docutils literal"><span class="pre">n_layers</span></code> is the depth of our model. We use the
+<code class="docutils literal"><span class="pre">HiddenLayer</span></code> class introduced in <a class="reference internal" href="mlp.html#mlp"><span class="std std-ref">Multilayer Perceptron</span></a>, with one
+modification: we replace the <code class="docutils literal"><span class="pre">tanh</span></code> non-linearity with the
+logistic function <img class="math" src="_images/math/f6e02991c908f6b7a39b37a37fc64d94fc646957.png" alt="s(x) = \frac{1}{1+e^{-x}}"/>).
+We link the sigmoid layers to form an MLP, and construct
+the denoising autoencoders such that each shares the weight matrix and the
+bias of its encoding part with its corresponding sigmoid layer.</p>
+<p>All we need now is to add a logistic layer on top of the sigmoid
+layers such that we have an MLP. We will
+use the <code class="docutils literal"><span class="pre">LogisticRegression</span></code> class introduced in <a class="reference internal" href="logreg.html#logreg"><span class="std std-ref">Classifying MNIST digits using Logistic Regression</span></a>.</p>
+<p>The <code class="docutils literal"><span class="pre">SdA</span></code> class also provides a method that generates training functions for
+the denoising autoencoders in its layers.
+They are returned as a list, where element <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/> is a function that
+implements one step of training the <code class="docutils literal"><span class="pre">dA</span></code> corresponding to layer
+<img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>.</p>
+<p>To be able to change the corruption level or the learning rate
+during training, we associate Theano variables with them.</p>
+<p>Now any function <code class="docutils literal"><span class="pre">pretrain_fns[i]</span></code> takes as arguments <code class="docutils literal"><span class="pre">index</span></code> and
+optionally <code class="docutils literal"><span class="pre">corruption</span></code>&#8212;the corruption level or <code class="docutils literal"><span class="pre">lr</span></code>&#8212;the
+learning rate. Note that the names of the parameters are the names given
+to the Theano variables when they are constructed, not the names of the
+Python variables (<code class="docutils literal"><span class="pre">learning_rate</span></code> or <code class="docutils literal"><span class="pre">corruption_level</span></code>). Keep this
+in mind when working with Theano.</p>
+<p>In the same fashion we build a method for constructing the functions required
+during finetuning (<code class="docutils literal"><span class="pre">train_fn</span></code>, <code class="docutils literal"><span class="pre">valid_score</span></code> and
+<code class="docutils literal"><span class="pre">test_score</span></code>).</p>
+<p>Note that <code class="docutils literal"><span class="pre">valid_score</span></code> and <code class="docutils literal"><span class="pre">test_score</span></code> are not Theano
+functions, but rather Python functions that loop over the entire
+validation set and the entire test set, respectively, producing a list of the losses
+over these sets.</p>
+</div>
+<div class="section" id="putting-it-all-together">
+<h2>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h2>
+<p>The few lines of code below construct the stacked denoising
+autoencoder:</p>
+<p>There are two stages of training for this network: layer-wise pre-training
+followed by fine-tuning.</p>
+<p>For the pre-training stage, we will loop over all the layers of the
+network. For each layer we will use the compiled Theano function that
+implements a SGD step towards optimizing the weights for reducing
+the reconstruction cost of that layer. This function will be applied
+to the training set for a fixed number of epochs given by
+<code class="docutils literal"><span class="pre">pretraining_epochs</span></code>.</p>
+<p>The fine-tuning loop is very similar to the one in the <a class="reference internal" href="mlp.html#mlp"><span class="std std-ref">Multilayer Perceptron</span></a>. The
+only difference is that it uses the functions given by
+<code class="docutils literal"><span class="pre">build_finetune_functions</span></code>.</p>
+</div>
+<div class="section" id="running-the-code">
+<h2>Running the Code<a class="headerlink" href="#running-the-code" title="Permalink to this headline">¶</a></h2>
+<p>The user can run the code by calling:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>python code/SdA.py
+</pre></div>
+</div>
+<p>By default the code runs 15 pre-training epochs for each layer, with a batch
+size of 1. The corruption levels are 0.1 for the first layer, 0.2 for the second,
+and 0.3 for the third. The pretraining learning rate is 0.001 and
+the finetuning learning rate is 0.1. Pre-training takes 585.01 minutes, with
+an average of 13 minutes per epoch. Fine-tuning is completed after 36 epochs
+in 444.2 minutes, with an average of 12.34 minutes per epoch. The final
+validation score is 1.39% with a testing score of 1.3%.
+These results were obtained on a machine with an Intel
+Xeon E5430 &#64; 2.66GHz CPU, with a single-threaded GotoBLAS.</p>
+</div>
+<div class="section" id="tips-and-tricks">
+<h2>Tips and Tricks<a class="headerlink" href="#tips-and-tricks" title="Permalink to this headline">¶</a></h2>
+<p>One way to improve the running time of your code (assuming you have
+sufficient memory available), is to compute how the network, up to layer
+<img class="math" src="_images/math/eafd21c9f1c846ff6abbb25f47267aa12ae8f4f6.png" alt="k-1"/>, transforms your data. Namely, you start by training your first
+layer dA. Once it is trained, you can compute the hidden units values for
+every datapoint in your dataset and store this as a new dataset that you will
+use to train the dA corresponding to layer 2. Once you have trained the dA for
+layer 2, you compute, in a similar fashion, the dataset for layer 3 and so on.
+You can see now, that at this point, the dAs are trained individually, and
+they just provide (one to the other) a non-linear transformation of the input.
+Once all dAs are trained, you can start fine-tuning the model.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="rbm.html" title="Restricted Boltzmann Machines (RBM)"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dA.html" title="Denoising Autoencoders (dA)"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

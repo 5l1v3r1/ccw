@@ -1,0 +1,384 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Hybrid Monte-Carlo Sampling &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Recurrent Neural Networks with Word Embeddings" href="rnnslu.html" />
+    <link rel="prev" title="Deep Belief Networks" href="DBN.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="rnnslu.html" title="Recurrent Neural Networks with Word Embeddings"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="DBN.html" title="Deep Belief Networks"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Hybrid Monte-Carlo Sampling</a><ul>
+<li><a class="reference internal" href="#theory">Theory</a></li>
+<li><a class="reference internal" href="#implementing-hmc-using-theano">Implementing HMC Using Theano</a></li>
+<li><a class="reference internal" href="#testing-our-sampler">Testing our Sampler</a></li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="DBN.html"
+                        title="previous chapter">Deep Belief Networks</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="rnnslu.html"
+                        title="next chapter">Recurrent Neural Networks with Word Embeddings</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/hmc.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="hybrid-monte-carlo-sampling">
+<span id="hmc"></span><h1>Hybrid Monte-Carlo Sampling<a class="headerlink" href="#hybrid-monte-carlo-sampling" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is an advanced tutorial, which shows how one can implemented Hybrid
+Monte-Carlo (HMC) sampling using Theano. We assume the reader is already
+familiar with Theano and energy-based models such as the RBM.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/hmc/hmc.py">here</a>.</p>
+</div>
+<div class="section" id="theory">
+<h2>Theory<a class="headerlink" href="#theory" title="Permalink to this headline">¶</a></h2>
+<p>Maximum likelihood learning of energy-based models requires a robust algorithm
+to sample negative phase particles (see Eq.(4) of the <a class="reference internal" href="rbm.html"><span class="doc">Restricted Boltzmann Machines (RBM)</span></a> tutorial).
+When training RBMs with CD or PCD, this is typically done with block Gibbs
+sampling, where the conditional distributions <img class="math" src="_images/math/50c41857d59ad19f0a772c75b16d6c15f637d023.png" alt="p(h|v)"/> and
+<img class="math" src="_images/math/525ceb1e43a702d4a5ad9557d5a4b8d530ba1040.png" alt="p(v|h)"/> are used as the transition operators of the Markov chain.</p>
+<p>In certain cases however, these conditional distributions might be difficult
+to sample from (i.e. requiring expensive matrix inversions, as in the case of
+the &#8220;mean-covariance RBM&#8221;). Also, even if Gibbs sampling can be done
+efficiently, it nevertheless operates via a random walk which might not be
+statistically efficient for some distributions.
+In this context, and when sampling from continuous variables, Hybrid Monte
+Carlo (HMC) can prove to be a powerful tool <a class="reference internal" href="#duane87" id="id1">[Duane87]</a>. It avoids random walk
+behavior by simulating a physical system governed by Hamiltonian dynamics,
+potentially avoiding tricky conditional distributions in the process.</p>
+<p>In HMC, model samples are obtained by simulating a physical system, where
+particles move about a high-dimensional landscape, subject to potential and
+kinetic energies.  Adapting the notation from <a class="reference internal" href="#neal93" id="id2">[Neal93]</a>, particles are
+characterized by a position vector or state <img class="math" src="_images/math/83d56e9a5443daeba331e0da5b19560838b020b2.png" alt="s \in \mathcal{R}^D"/> and
+velocity vector <img class="math" src="_images/math/3c0a048b95c6fa4be08444aa29051617278c1acb.png" alt="\phi \in \mathcal{R}^D"/>. The combined state of a
+particle is denoted as <img class="math" src="_images/math/51fbd4444cb83165ae5b5d2461e3f043b2c27639.png" alt="\chi=(s,\phi)"/>. The Hamiltonian is then defined
+as the sum of potential energy <img class="math" src="_images/math/e581188980389f248ea2b6c37c17149a9199b274.png" alt="E(s)"/> (same energy function defined by
+energy-based models) and kinetic energy <img class="math" src="_images/math/f7e22ad86b6657cca1c74a21a8833abf3facc4d3.png" alt="K(\phi)"/>, as follows:</p>
+<div class="math">
+<p><img src="_images/math/b63c3479c06415e59ddae6ce731b7ff6965ae38c.png" alt="\mathcal{H}(s,\phi) = E(s) + K(\phi)
+                          = E(s) + \frac{1}{2} \sum_i \phi_i^2"/></p>
+</div><p>Instead of sampling <img class="math" src="_images/math/6f22a529680574b4cf6894cfe3436a060ee3300b.png" alt="p(s)"/> directly, HMC operates by sampling from the
+canonical distribution
+<img class="math" src="_images/math/9a79c0a232d2f569955df2dcc3b01520eb26830d.png" alt="p(s,\phi) = \frac{1}{Z} \exp(-\mathcal{H}(s,\phi))=p(s)p(\phi)"/>.
+Because the two variables are independent, marginalizing over
+<img class="math" src="_images/math/d2c6651f590c6ed7d93a9865f684b62c10d81438.png" alt="\phi"/> is trivial and recovers the original distribution of
+interest.</p>
+<p><strong>Hamiltonian Dynamics</strong></p>
+<p>State <img class="math" src="_images/math/546f73ac8fe1d03b648f4cbd5fdfba0af61032e6.png" alt="s"/> and velocity <img class="math" src="_images/math/d2c6651f590c6ed7d93a9865f684b62c10d81438.png" alt="\phi"/> are modified such that
+<img class="math" src="_images/math/c5bfdc7805a4168d8c5bb831ca0603f2c2bcc1ca.png" alt="\mathcal{H}(s,\phi)"/> remains constant throughout the simulation.
+The differential equations are given by:</p>
+<div class="math" id="equation-ds_dt">
+<p><span class="eqno">(1)</span><img src="_images/math/d8c8740ff5bd26c27a8a7924044869d1230b55f8.png" alt="\frac{ds_i}{dt} &amp;= \frac{\partial \mathcal{H}}{\partial \phi_i} = \phi_i \\
+\frac{d\phi_i}{dt} &amp;= - \frac{\partial \mathcal{H}}{\partial s_i}
+                 = - \frac{\partial E}{\partial s_i}"/></p>
+</div><p>As shown in <a class="reference internal" href="#neal93" id="id3">[Neal93]</a>, the above transformation preserves volume and is
+reversible. The above dynamics can thus be used as transition operators of a
+Markov chain and will leave <img class="math" src="_images/math/9e0550c430d4add68849df0fe17d6863b3a5e4d2.png" alt="p(s,\phi)"/> invariant. That chain by itself
+is not ergodic however, since simulating the dynamics maintains a fixed
+Hamiltonian <img class="math" src="_images/math/c5bfdc7805a4168d8c5bb831ca0603f2c2bcc1ca.png" alt="\mathcal{H}(s,\phi)"/>.
+HMC thus alternates hamiltonian dynamic steps, with Gibbs sampling of the
+velocity. Because <img class="math" src="_images/math/6f22a529680574b4cf6894cfe3436a060ee3300b.png" alt="p(s)"/> and <img class="math" src="_images/math/db6323377c4614d0a0603a2fe1baa6b732811fee.png" alt="p(\phi)"/> are independent, sampling
+<img class="math" src="_images/math/a3acf8b184d9ff39f3c34d0cd58effe5e5879ef1.png" alt="\phi_{new} \sim p(\phi|s)"/> is trivial since <img class="math" src="_images/math/d21285a56c988170addb239ebb6fe2aa281d3bab.png" alt="p(\phi|s)=p(\phi)"/>,
+where <img class="math" src="_images/math/db6323377c4614d0a0603a2fe1baa6b732811fee.png" alt="p(\phi)"/> is often taken to be the uni-variate Gaussian.</p>
+<p><strong>The Leap-Frog Algorithm</strong></p>
+<p>In practice, we cannot simulate Hamiltonian dynamics exactly because of the
+problem of time discretization. There are several ways one can do this. To
+maintain invariance of the Markov chain however, care must be taken to
+preserve the properties of volume conservation and time reversibility.  The
+<strong>leap-frog algorithm</strong> maintains these properties and operates in 3 steps:</p>
+<div class="math" id="equation-leap-frog">
+<p><span class="eqno">(2)</span><img src="_images/math/6528641268e87e188b01d5219d59893500ea9db9.png" alt="\phi_i(t + \epsilon/2) &amp;= \phi_i(t) - \frac{\epsilon}{2} \frac{\partial{}}{\partial s_i} E(s(t)) \\
+s_i(t + \epsilon) &amp;= s_i(t) + \epsilon \phi_i(t + \epsilon/2) \\
+\phi_i(t + \epsilon) &amp;= \phi_i(t + \epsilon/2) - \frac{\epsilon}{2} \frac{\partial{}}{\partial s_i} E(s(t + \epsilon)) \\"/></p>
+</div><p>We thus perform a half-step update of the velocity at time
+<img class="math" src="_images/math/cd95b156607f8e6466b00f91e500d43b97675a71.png" alt="t+\epsilon/2"/>, which is then used to compute <img class="math" src="_images/math/b3d62a70c541b84b51c228a2131d2853423d15d3.png" alt="s(t + \epsilon)"/>
+and <img class="math" src="_images/math/9fea8a4061566d3f814bcf645668a7a5b3e3540c.png" alt="\phi(t + \epsilon)"/>.</p>
+<p><strong>Accept / Reject</strong></p>
+<p>In practice, using finite stepsizes <img class="math" src="_images/math/d40c661ef03b439253268819f3c101f441e7fd89.png" alt="\epsilon"/> will not preserve
+<img class="math" src="_images/math/c5bfdc7805a4168d8c5bb831ca0603f2c2bcc1ca.png" alt="\mathcal{H}(s,\phi)"/> exactly and will introduce bias in the simulation.
+Also, rounding errors due to the use of floating point numbers means that the
+above transformation will not be perfectly reversible.</p>
+<p>HMC cancels these effects <strong>exactly</strong> by adding a Metropolis accept/reject
+stage, after <img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> leapfrog steps. The new state <img class="math" src="_images/math/3c3baae49794c008ab3afb2ee47fc078d668ceb1.png" alt="\chi' = (s',\phi')"/> is
+accepted with probability <img class="math" src="_images/math/b89b44ae28186f0f4a4c6850287918f5b2b239f0.png" alt="p_{acc}(\chi,\chi')"/>, defined as:</p>
+<div class="math">
+<p><img src="_images/math/3e3d6c69564fa343207d089d96378501dfb1a90e.png" alt="p_{acc}(\chi,\chi') = min \left( 1, \frac{\exp(-\mathcal{H}(s',\phi')}{\exp(-\mathcal{H}(s,\phi)} \right)"/></p>
+</div><p><strong>HMC Algorithm</strong></p>
+<p>In this tutorial, we obtain a new HMC sample as follows:</p>
+<ol class="arabic simple">
+<li>sample a new velocity from a univariate Gaussian distribution</li>
+<li>perform <img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> leapfrog steps to obtain the new state <img class="math" src="_images/math/1ec740c0a113bbbaa2941290fc858966b7feb506.png" alt="\chi'"/></li>
+<li>perform accept/reject move of <img class="math" src="_images/math/1ec740c0a113bbbaa2941290fc858966b7feb506.png" alt="\chi'"/></li>
+</ol>
+</div>
+<div class="section" id="implementing-hmc-using-theano">
+<h2>Implementing HMC Using Theano<a class="headerlink" href="#implementing-hmc-using-theano" title="Permalink to this headline">¶</a></h2>
+<p>In Theano, update dictionaries and shared variables provide a natural way to
+implement a sampling algorithm. The current state of the sampler can be
+represented as a Theano shared variable, with HMC updates being implemented by
+the updates list of a Theano function.</p>
+<p>We breakdown the HMC algorithm into the following sub-components:</p>
+<ul class="simple">
+<li><img class="math" src="_images/math/817cddc127a65e9927ae0e7f0319f5031e6b5f23.png" alt="simulate\_dynamics"/>: a symbolic Python function which, given an initial position and velocity, will perform <img class="math" src="_images/math/3bd1dac6a0a04ac5421abaac950f5f2b71297bfb.png" alt="n\_steps"/> leapfrog updates and return the symbolic variables for the proposed state <img class="math" src="_images/math/1ec740c0a113bbbaa2941290fc858966b7feb506.png" alt="\chi'"/>.</li>
+<li><img class="math" src="_images/math/48e4011cd969c4ac403afb651a3cd05a32358b5e.png" alt="hmc\_move"/>: a symbolic Python function which given a starting position,
+generates <img class="math" src="_images/math/ff9c00fe86be11416d897fe59656009d131bced0.png" alt="\chi"/> by randomly sampling a velocity vector. It then
+calls <img class="math" src="_images/math/817cddc127a65e9927ae0e7f0319f5031e6b5f23.png" alt="simulate\_dynamics"/> and determines whether the transition <img class="math" src="_images/math/d5bc036df715355cec5f7b5ebcb82275f45a7a10.png" alt="\chi
+\rightarrow \chi'"/> is to be accepted.</li>
+<li><img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/>: a Python function which, given the symbolic outputs of <img class="math" src="_images/math/48e4011cd969c4ac403afb651a3cd05a32358b5e.png" alt="hmc\_move"/>,
+generates the list of updates for a single iteration of HMC.</li>
+<li><img class="math" src="_images/math/b398ed403ba6e55005f6c76e13fc0c1d9e0446a8.png" alt="HMC\_sampler"/>: a Python helper class which wraps everything together.</li>
+</ul>
+<p><strong>simulate_dynamics</strong></p>
+<p>To perform <img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> leapfrog steps, we first need to define a function over
+which <img class="math" src="_images/math/ba4b9d4e732e552551fa0b33b913fde957b9e549.png" alt="Scan"/> can iterate over. Instead of implementing Eq. <a class="reference internal" href="#equation-leap-frog">(2)</a>
+verbatim, notice that we can obtain <img class="math" src="_images/math/d895c6c7c188600cdc34d0e835fae30c5873ae7b.png" alt="s(t + n \epsilon)"/> and
+<img class="math" src="_images/math/d7830af8131a2f57f9e9840ddb488f725facbfa6.png" alt="\phi(t + n \epsilon)"/> by performing an initial half-step update for
+<img class="math" src="_images/math/d2c6651f590c6ed7d93a9865f684b62c10d81438.png" alt="\phi"/>, followed by <img class="math" src="_images/math/27bd99fcf9524ed3022466d893c925c19ab197e9.png" alt="n"/> full-step updates for <img class="math" src="_images/math/a1632ab6f6fded43853c1205bcf65133c48739d0.png" alt="s,\phi"/> and
+one last half-step update for <img class="math" src="_images/math/d2c6651f590c6ed7d93a9865f684b62c10d81438.png" alt="\phi"/>. In loop form, this gives:</p>
+<div class="math" id="equation-leap-frog2">
+<p><span class="eqno">(3)</span><img src="_images/math/7547d387435a98653e3996cc7734f2926e8d203f.png" alt="&amp; \phi_i(t + \epsilon/2) = \phi_i(t) -
+   \frac{\epsilon}{2} \frac{\partial{}}{\partial s_i} E(s(t)) \\
+&amp; s_i(t + \epsilon) = s_i(t) + \epsilon \phi_i(t + \epsilon/2) \\
+&amp; \text{For } m \in [2,n]\text{, perform full updates: } \\
+&amp; \qquad
+  \phi_i(t + (m - 1/2)\epsilon) = \phi_i(t + (m-3/2)\epsilon) -
+      \epsilon \frac{\partial{}}{\partial s_i} E(s(t + (m-1)\epsilon)) \\
+&amp; \qquad
+  s_i(t + m\epsilon) = s_i(t) + \epsilon \phi_i(t + (m-1/2)\epsilon) \\
+&amp; \phi_i(t + n\epsilon) = \phi_i(t + (n-1/2)\epsilon) -
+     \frac{\epsilon}{2} \frac{\partial{}}{\partial s_i} E(s(t + n\epsilon)) \\"/></p>
+</div><p>The inner-loop defined above is implemented by the following <img class="math" src="_images/math/5742e8a78265f97d63c1cc76b3598a0f484db7cf.png" alt="leapfrog"/>
+function, with <img class="math" src="_images/math/c8017f3d067d847b68493f98559613db3787c770.png" alt="pos"/>, <img class="math" src="_images/math/96adf03ab3c0c7cc69ec378ef73588757df32ac8.png" alt="vel"/> and <img class="math" src="_images/math/6397adc8c3f765ce15e5d6489eabdc815605d221.png" alt="step"/> replacing <img class="math" src="_images/math/a1632ab6f6fded43853c1205bcf65133c48739d0.png" alt="s,\phi"/> and <img class="math" src="_images/math/d40c661ef03b439253268819f3c101f441e7fd89.png" alt="\epsilon"/>
+respectively.</p>
+<p>The <img class="math" src="_images/math/817cddc127a65e9927ae0e7f0319f5031e6b5f23.png" alt="simulate\_dynamics"/> function performs the full algorithm of Eqs.
+<a class="reference internal" href="#equation-leap-frog2">(3)</a>. We start with the initial half-step update of <img class="math" src="_images/math/d2c6651f590c6ed7d93a9865f684b62c10d81438.png" alt="\phi"/>
+and full-step of <img class="math" src="_images/math/546f73ac8fe1d03b648f4cbd5fdfba0af61032e6.png" alt="s"/>, and then scan over the <img class="math" src="_images/math/5742e8a78265f97d63c1cc76b3598a0f484db7cf.png" alt="leapfrog"/> method
+<img class="math" src="_images/math/9a1e42765a8075f779aa403bdcae3e64b21a63ab.png" alt="n\_steps-1"/> times.</p>
+<p>A final half-step is performed to compute <img class="math" src="_images/math/d6093c0e59e0dc76e9af8f0ad5fcdde751a2266f.png" alt="\phi(t+n\epsilon)"/>, and the
+final proposed state <img class="math" src="_images/math/1ec740c0a113bbbaa2941290fc858966b7feb506.png" alt="\chi'"/> is returned.</p>
+<p><strong>hmc_move</strong></p>
+<p>The <img class="math" src="_images/math/48e4011cd969c4ac403afb651a3cd05a32358b5e.png" alt="hmc\_move"/> function implements the remaining steps (steps 1 and 3) of an
+HMC move proposal (while wrapping the <img class="math" src="_images/math/817cddc127a65e9927ae0e7f0319f5031e6b5f23.png" alt="simulate\_dynamics"/> function). Given a
+matrix of initial states <img class="math" src="_images/math/d62006e185926ae391c5e2fd2326f39e3725cc72.png" alt="s \in \mathcal{R}^{N \times D}"/> (<img class="math" src="_images/math/05e17b8f8701199c28cf748e5655ef572b001a63.png" alt="positions"/>) and
+energy function <img class="math" src="_images/math/e581188980389f248ea2b6c37c17149a9199b274.png" alt="E(s)"/> (<img class="math" src="_images/math/a6b82cbf5b266f1282456646f4d573555032f6ce.png" alt="energy\_fn"/>), it defines the symbolic graph for
+computing <img class="math" src="_images/math/3bd1dac6a0a04ac5421abaac950f5f2b71297bfb.png" alt="n\_steps"/> of HMC, using a given <img class="math" src="_images/math/01a74bcf7a27e00c2c007e7c066606ff5e750922.png" alt="stepsize"/>. The function prototype
+is as follows:</p>
+<p>We start by sampling random velocities, using the provided shared RandomStream
+object. Velocities are sampled independently for each dimension and for each
+particle under simulation, yielding a <img class="math" src="_images/math/ab2c7708e17ad45300004023181ea0bf16610bae.png" alt="N \times D"/> matrix.</p>
+<p>Since we now have an initial position and velocity, we can now call the
+<img class="math" src="_images/math/817cddc127a65e9927ae0e7f0319f5031e6b5f23.png" alt="simulate\_dynamics"/> to obtain the proposal for the new state <img class="math" src="_images/math/1ec740c0a113bbbaa2941290fc858966b7feb506.png" alt="\chi'"/>.</p>
+<p>We then accept/reject the proposed state based on the Metropolis algorithm.</p>
+<p>where <img class="math" src="_images/math/5694a0e51e26d6cfa239e916f5117111c331d2b7.png" alt="metropolis\_hastings\_accept"/> and <img class="math" src="_images/math/865a6582bdb8ca74150cfd5a069511d4b37d1d11.png" alt="hamiltonian"/> are helper functions,
+defined as follows.</p>
+<p><img class="math" src="_images/math/48e4011cd969c4ac403afb651a3cd05a32358b5e.png" alt="hmc\_move"/> finally returns the tuple <img class="math" src="_images/math/57b97e14e36aaff5e69715f9eab94617d3c11099.png" alt="(accept, final\_pos)"/>. <img class="math" src="_images/math/3b9040ebbc8782a611e5d74446898dad70066ff7.png" alt="accept"/> is a
+symbolic boolean variable indicating whether or not the new state <img class="math" src="_images/math/db70c04d1c7e9542c9173530efd922d9e3dda310.png" alt="final\_pos"/>
+should be used or not.</p>
+<p><strong>hmc_updates</strong></p>
+<p>The purpose of <img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/> is to generate the list of updates to
+perform, whenever our HMC sampling function is called. <img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/> thus
+receives as parameters, a series of shared variables to update (<img class="math" src="_images/math/05e17b8f8701199c28cf748e5655ef572b001a63.png" alt="positions"/>, <img class="math" src="_images/math/01a74bcf7a27e00c2c007e7c066606ff5e750922.png" alt="stepsize"/> and
+<img class="math" src="_images/math/d730568bc30f5a5ed84ca148d0e88716829604b8.png" alt="avg\_acceptance\_rate"/>), and the parameters required to compute their new
+state.</p>
+<p>Using the above code, the dictionary <img class="math" src="_images/math/91156279c80e485e10a9ab19776460cf9cfccf1e.png" alt="{positions: new\_positions}"/> can be used
+to update the state of the sampler with either (1) the new state <img class="math" src="_images/math/db70c04d1c7e9542c9173530efd922d9e3dda310.png" alt="final\_pos"/>
+if <img class="math" src="_images/math/3b9040ebbc8782a611e5d74446898dad70066ff7.png" alt="accept"/> is True, or (2) the old state if <img class="math" src="_images/math/3b9040ebbc8782a611e5d74446898dad70066ff7.png" alt="accept"/> is False.  This
+conditional assignment is performed by the <a class="reference external" href="http://deeplearning.net/software/theano/library/tensor/basic.html#tensor.switch">switch</a> op.</p>
+<p><img class="math" src="_images/math/4187c9cdb4b4273a0b0dd261d2b82b6f1a513b7a.png" alt="switch"/> expects as its first argument, a boolean mask with the same
+broadcastable dimensions as the second and third argument. Since <img class="math" src="_images/math/3b9040ebbc8782a611e5d74446898dad70066ff7.png" alt="accept"/> is
+scalar-valued, we must first use <a class="reference external" href="http://deeplearning.net/software/theano/library/tensor/basic.html#tensor._tensor_py_operators.dimshuffle">dimshuffle</a> to transform it to a tensor with
+<img class="math" src="_images/math/72c3df82774a6c04b0eec261e396a72f007fa16d.png" alt="final\_pos.ndim"/> broadcastable dimensions (<img class="math" src="_images/math/661eb8323438db4c590384ccb13ffe3cbcd1f9de.png" alt="accept\_matrix"/>).</p>
+<p><img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/> additionally implements an adaptive version of HMC, as
+implemented in the accompanying code to <a class="reference internal" href="references.html#ranzato10" id="id4">[Ranzato10]</a>. We start by tracking the
+average acceptance rate of the HMC move proposals (across many simulations),
+using an exponential moving average with time constant
+<img class="math" src="_images/math/47505c528a9d872a82d9ac765e8630791731566a.png" alt="1-avg\_acceptance\_slowness"/>.</p>
+<p>If the average acceptance rate is larger than the <img class="math" src="_images/math/174de824de104526a75aeab414241fdf62e753f6.png" alt="target\_acceptance\_rate"/>, we
+increase the <img class="math" src="_images/math/01a74bcf7a27e00c2c007e7c066606ff5e750922.png" alt="stepsize"/> by a factor of <img class="math" src="_images/math/c9bcf85335dfa209406e8edddbe9aa0cf51bd242.png" alt="stepsize\_inc"/> in order to increase the
+mixing rate of our chain. If the average acceptance rate is too low however,
+<img class="math" src="_images/math/01a74bcf7a27e00c2c007e7c066606ff5e750922.png" alt="stepsize"/> is decreased by a factor of <img class="math" src="_images/math/b6060be20bb33a0c2335c862575e8b557f4b7806.png" alt="stepsize\_dec"/>, yielding a more
+conservative mixing rate. The <a class="reference external" href="http://deeplearning.net/software/theano/library/tensor/basic.html#tensor.clip">clip</a> op allows us to maintain the <img class="math" src="_images/math/01a74bcf7a27e00c2c007e7c066606ff5e750922.png" alt="stepsize"/>
+in the range [<img class="math" src="_images/math/eafa9cd9dce75ff216327ecb39e40c9333a09aeb.png" alt="stepsize\_min"/>, <img class="math" src="_images/math/ba88dc18f31b78aaa66c04542af602fa20dd2cd2.png" alt="stepsize\_max"/>].</p>
+<p>The final updates list is then returned.</p>
+<p><strong>HMC_sampler</strong></p>
+<p>We finally tie everything together using the <img class="math" src="_images/math/3c66700984311082d34045f6442b74d00867951f.png" alt="HMC\_Sampler"/> class. Its main
+elements are:</p>
+<ul class="simple">
+<li><img class="math" src="_images/math/a32334dd57f2cf9e57dc23e890b3c56c33f6bbe8.png" alt="new\_from\_shared\_positions"/>: a constructor method which allocates various
+shared variables and strings together the calls to <img class="math" src="_images/math/48e4011cd969c4ac403afb651a3cd05a32358b5e.png" alt="hmc\_move"/> and
+<img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/>. It also builds the theano function <img class="math" src="_images/math/70df5b27faab05a3cdfd80cdd4540c73ebee599b.png" alt="simulate"/>, whose sole
+purpose is to execute the updates generated by <img class="math" src="_images/math/d7c226ef999479b6c6bf66f7f078b41b2075ae5b.png" alt="hmc\_updates"/>.</li>
+<li><img class="math" src="_images/math/5dd664e4a6fe11487aabd71972178ae6b2fbc958.png" alt="draw"/>: a convenience method which calls the Theano function <img class="math" src="_images/math/70df5b27faab05a3cdfd80cdd4540c73ebee599b.png" alt="simulate"/>
+and returns a copy of the contents of the shared variable <img class="math" src="_images/math/5e630312c0f57433afae199ca54c777cf88e113c.png" alt="self.positions"/>.</li>
+</ul>
+</div>
+<div class="section" id="testing-our-sampler">
+<h2>Testing our Sampler<a class="headerlink" href="#testing-our-sampler" title="Permalink to this headline">¶</a></h2>
+<p>We test our implementation of HMC by sampling from a multi-variate Gaussian
+distribution. We start by generating a random mean vector <img class="math" src="_images/math/1d75a8a4a6a666160205efc60663cda82c4ab0d2.png" alt="mu"/> and covariance
+matrix <img class="math" src="_images/math/fccf3f20468edfc25905bb829f19fdc900aa1ccc.png" alt="cov"/>, which allows us to define the energy function of the
+corresponding Gaussian distribution: <img class="math" src="_images/math/9585a0fa41218a429ed58ca1c9228a8b4a2b1b4e.png" alt="gaussian\_energy"/>.
+We then initialize the state of the sampler by allocating a <img class="math" src="_images/math/6e33e0018e8a5457f9490aadd90a9f307887ea2d.png" alt="position"/> shared
+variable. It is passed to the constructor of <img class="math" src="_images/math/b398ed403ba6e55005f6c76e13fc0c1d9e0446a8.png" alt="HMC\_sampler"/> along with our
+target energy function.</p>
+<p>Following a burn-in period, we then generate a large number of samples and
+compare the empirical mean and covariance matrix to their true values.</p>
+<p>The above code can be run using the command: &#8220;nosetests -s code/hmc/test_hmc.py&#8221;. The output is as follows:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="o">[</span>desjagui@atchoum hmc<span class="o">]</span>$ python test_hmc.py
+
+****** TARGET VALUES ******
+target mean: <span class="o">[</span> 6.96469186  2.86139335  2.26851454  5.51314769  7.1946897 <span class="o">]</span>
+target cov:
+<span class="o">[[</span> 1.          0.66197111  0.71141257  0.55766643  0.35753822<span class="o">]</span>
+ <span class="o">[</span> 0.66197111  1.          0.31053199  0.45455485  0.37991646<span class="o">]</span>
+ <span class="o">[</span> 0.71141257  0.31053199  1.          0.62800335  0.38004541<span class="o">]</span>
+ <span class="o">[</span> 0.55766643  0.45455485  0.62800335  1.          0.50807871<span class="o">]</span>
+ <span class="o">[</span> 0.35753822  0.37991646  0.38004541  0.50807871  1.        <span class="o">]]</span>
+
+****** EMPIRICAL MEAN/COV USING HMC ******
+empirical mean:  <span class="o">[</span> 6.94155164  2.81526039  2.26301715  5.46536853  7.19414496<span class="o">]</span>
+empirical_cov:
+<span class="o">[[</span> 1.05152997  0.68393537  0.76038645  0.59930252  0.37478746<span class="o">]</span>
+ <span class="o">[</span> 0.68393537  0.97708159  0.37351422  0.48362404  0.3839558 <span class="o">]</span>
+ <span class="o">[</span> 0.76038645  0.37351422  1.03797111  0.67342957  0.41529132<span class="o">]</span>
+ <span class="o">[</span> 0.59930252  0.48362404  0.67342957  1.02865056  0.53613649<span class="o">]</span>
+ <span class="o">[</span> 0.37478746  0.3839558   0.41529132  0.53613649  0.98721449<span class="o">]]</span>
+
+****** HMC INTERNALS ******
+final stepsize 0.460446628091
+final acceptance_rate 0.922502043428
+</pre></div>
+</div>
+<p>As can be seen above, the samples generated by our HMC sampler yield an
+empirical mean and covariance matrix, which are very close to the true
+underlying parameters. The adaptive algorithm also seemed to work well as the
+final acceptance rate is close to our target of <img class="math" src="_images/math/c61de75a794ded580e734f024c0ec46dca7839d9.png" alt="0.9"/>.</p>
+</div>
+<div class="section" id="references">
+<h2>References<a class="headerlink" href="#references" title="Permalink to this headline">¶</a></h2>
+<table class="docutils citation" frame="void" id="alder59" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[Alder59]</td><td>Alder, B. J. and Wainwright, T. E. (1959) &#8220;Studies in molecular dynamics. 1. General method&#8221;, Journal of Chemical Physics, vol. 31, pp. 459-466.</td></tr>
+</tbody>
+</table>
+<table class="docutils citation" frame="void" id="andersen80" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[Andersen80]</td><td>Andersen, H.C. (1980) &#8220;Molecular dynamics simulations at constant pressure and/or temperature&#8221;, Journal of Chemical Physics, vol. 72, pp. 2384-2393.</td></tr>
+</tbody>
+</table>
+<table class="docutils citation" frame="void" id="duane87" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[Duane87]</a></td><td>Duane, S., Kennedy, A. D., Pendleton, B. J., and Roweth, D. (1987) &#8220;Hybrid Monte Carlo&#8221;, Physics Letters, vol. 195, pp. 216-222.</td></tr>
+</tbody>
+</table>
+<table class="docutils citation" frame="void" id="neal93" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[Neal93]</td><td><em>(<a class="fn-backref" href="#id2">1</a>, <a class="fn-backref" href="#id3">2</a>)</em> Neal, R. M. (1993) &#8220;Probabilistic Inference Using Markov Chain Monte Carlo Methods&#8221;, Technical Report CRG-TR-93-1, Dept. of Computer Science, University of Toronto, 144 pages</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="rnnslu.html" title="Recurrent Neural Networks with Word Embeddings"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="DBN.html" title="Deep Belief Networks"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

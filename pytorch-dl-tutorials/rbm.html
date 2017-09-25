@@ -1,0 +1,525 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Restricted Boltzmann Machines (RBM) &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Deep Belief Networks" href="DBN.html" />
+    <link rel="prev" title="Stacked Denoising Autoencoders (SdA)" href="SdA.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="DBN.html" title="Deep Belief Networks"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="SdA.html" title="Stacked Denoising Autoencoders (SdA)"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Restricted Boltzmann Machines (RBM)</a><ul>
+<li><a class="reference internal" href="#energy-based-models-ebm">Energy-Based Models (EBM)</a></li>
+<li><a class="reference internal" href="#id1">Restricted Boltzmann Machines (RBM)</a></li>
+<li><a class="reference internal" href="#sampling-in-an-rbm">Sampling in an RBM</a><ul>
+<li><a class="reference internal" href="#contrastive-divergence-cd-k">Contrastive Divergence (CD-k)</a></li>
+<li><a class="reference internal" href="#persistent-cd">Persistent CD</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementation">Implementation</a><ul>
+<li><a class="reference internal" href="#tracking-progress">Tracking Progress</a></li>
+<li><a class="reference internal" href="#main-loop">Main Loop</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#results">Results</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="SdA.html"
+                        title="previous chapter">Stacked Denoising Autoencoders (SdA)</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="DBN.html"
+                        title="next chapter">Deep Belief Networks</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/rbm.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="restricted-boltzmann-machines-rbm">
+<span id="rbm"></span><h1>Restricted Boltzmann Machines (RBM)<a class="headerlink" href="#restricted-boltzmann-machines-rbm" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This section assumes the reader has already read through <a class="reference internal" href="logreg.html"><span class="doc">Classifying MNIST digits using Logistic Regression</span></a>
+and <a class="reference internal" href="mlp.html"><span class="doc">Multilayer Perceptron</span></a>. Additionally it uses the following Theano functions
+and concepts: <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html?highlight=tanh">T.tanh</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-shared-variables">shared variables</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/adding.html#adding-two-scalars">basic arithmetic ops</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a>, <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#using-random-numbers">Random numbers</a>, <a class="reference external" href="http://deeplearning.net/software/theano/library/config.html#config.floatX">floatX</a> and <a class="reference external" href="http://deeplearning.net/software/theano/library/scan.html">scan</a>. If you intend to run the code on GPU also read <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/using_gpu.html">GPU</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The code for this section is available for download <a class="reference external" href="http://deeplearning.net/tutorial/code/rbm.py">here</a>.</p>
+</div>
+<div class="section" id="energy-based-models-ebm">
+<h2>Energy-Based Models (EBM)<a class="headerlink" href="#energy-based-models-ebm" title="Permalink to this headline">¶</a></h2>
+<p><strong>Energy-based</strong> models associate a scalar energy to each configuration of the
+variables of interest. Learning corresponds to modifying that energy function
+so that its shape has desirable properties. For example, we would like
+plausible or desirable configurations to have low energy.  Energy-based
+probabilistic models define a probability distribution through an energy
+function, as follows:</p>
+<div class="math" id="equation-energy1">
+<p><span class="eqno">(1)</span><img src="_images/math/216df969d947c4f086dbe461afa7269a6eb6f07f.png" alt="p(x) = \frac {e^{-E(x)}} {Z}."/></p>
+</div><p>The normalizing factor <img class="math" src="_images/math/cdc2cc2629a0931f2f27ab65629fbb5a248ca220.png" alt="Z"/> is called the <strong>partition function</strong> by analogy
+with physical systems.</p>
+<div class="math">
+<p><img src="_images/math/4ad4fa27f93fc1e0ef8db6cdbbeb9a0209299fbd.png" alt="Z = \sum_x e^{-E(x)}"/></p>
+</div><p>An energy-based model can be learnt by performing (stochastic) gradient
+descent on the empirical negative log-likelihood of the training data. As for
+the logistic regression we will first define the log-likelihood and then the
+loss function as being the negative log-likelihood.</p>
+<div class="math">
+<p><img src="_images/math/95a46acb679d27dfb79d6f1e3ee05597b82096b7.png" alt="\mathcal{L}(\theta, \mathcal{D}) = \frac{1}{N} \sum_{x^{(i)} \in
+\mathcal{D}} \log\ p(x^{(i)})\\
+\ell (\theta, \mathcal{D}) = - \mathcal{L} (\theta, \mathcal{D})"/></p>
+</div><p>using the stochastic gradient <img class="math" src="_images/math/b7515c9dec0d637f0e7ffb3c2672af9ced093bf8.png" alt="-\frac{\partial  \log p(x^{(i)})}{\partial
+\theta}"/>, where <img class="math" src="_images/math/3308ba7b159fbf8b71d3cdad9c985903755be715.png" alt="\theta"/> are the parameters of the model.</p>
+<p><strong>EBMs with Hidden Units</strong></p>
+<p>In many cases of interest, we do not observe the example <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> fully, or we
+want to introduce some non-observed variables to increase the expressive power
+of the model. So we consider an observed part (still denoted <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> here) and a
+<strong>hidden</strong> part <img class="math" src="_images/math/5a451b201c93199455258e48be4df7024e4ac7d7.png" alt="h"/>. We can then write:</p>
+<div class="math" id="equation-energy2">
+<p><span class="eqno">(2)</span><img src="_images/math/c1aa1d92c82c5798bf811972244abc55cb467aa4.png" alt="P(x) = \sum_h P(x,h) = \sum_h \frac{e^{-E(x,h)}}{Z}."/></p>
+</div><p>In such cases, to map this formulation to one similar to Eq. <a class="reference internal" href="#equation-energy1">(1)</a>, we
+introduce the notation (inspired from physics) of <strong>free energy</strong>, defined as
+follows:</p>
+<div class="math" id="equation-free_energy">
+<p><span class="eqno">(3)</span><img src="_images/math/5064c8c1a8ce7a9123d92e0acac39744c1048109.png" alt="\mathcal{F}(x) = - \log \sum_h e^{-E(x,h)}"/></p>
+</div><p>which allows us to write,</p>
+<div class="math">
+<p><img src="_images/math/71baed551b773d240d92ac49688c9676ebcec1bb.png" alt="&amp;P(x) = \frac{e^{-\mathcal{F}(x)}}{Z} \text{ with } Z=\sum_x e^{-\mathcal{F}(x)}."/></p>
+</div><p>The data negative log-likelihood gradient then has a particularly interesting
+form.</p>
+<div class="math" id="equation-free_energy_grad">
+<p><span class="eqno">(4)</span><img src="_images/math/6e8377004d5180185830f2509f9a92b38890a4f1.png" alt="- \frac{\partial  \log p(x)}{\partial \theta}
+ &amp;= \frac{\partial \mathcal{F}(x)}{\partial \theta} -
+       \sum_{\tilde{x}} p(\tilde{x}) \
+           \frac{\partial \mathcal{F}(\tilde{x})}{\partial \theta}."/></p>
+</div><p>Notice that the above gradient contains two terms, which are referred to as
+the <strong>positive</strong> and <strong>negative phase</strong>. The terms positive and negative do
+not refer to the sign of each term in the equation, but rather reflect their
+effect on the probability density defined by the model. The first term
+increases the probability of training data (by reducing the corresponding free
+energy), while the second term decreases the probability of samples generated
+by the model.</p>
+<p>It is usually difficult to determine this gradient analytically, as it
+involves the computation of
+<img class="math" src="_images/math/b5790ce9ba4f246cfd12e729451ac631f2b7d4ac.png" alt="E_P [ \frac{\partial \mathcal{F}(x)} {\partial \theta} ]"/>. This is
+nothing less than an expectation over all possible configurations of the input
+<img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> (under the distribution <img class="math" src="_images/math/8c9ef9f08456a5032628a065e391f70dc416ae37.png" alt="P"/> formed by the model) !</p>
+<p>The first step in making this computation tractable is to estimate the
+expectation using a fixed number of model samples. Samples used to estimate the
+negative phase gradient are referred to as <strong>negative particles</strong>, which are
+denoted as <img class="math" src="_images/math/833697ce779e554aa3de502514fbb1574b1b7779.png" alt="\mathcal{N}"/>. The gradient can then be written as:</p>
+<div class="math" id="equation-bm_grad">
+<p><span class="eqno">(5)</span><img src="_images/math/52699d07e7ec91a97a8b952c99df6ca3a01716e2.png" alt="- \frac{\partial \log p(x)}{\partial \theta}
+ &amp;\approx
+  \frac{\partial \mathcal{F}(x)}{\partial \theta} -
+   \frac{1}{|\mathcal{N}|}\sum_{\tilde{x} \in \mathcal{N}} \
+   \frac{\partial \mathcal{F}(\tilde{x})}{\partial \theta}."/></p>
+</div><p>where we would ideally like elements <img class="math" src="_images/math/ffba5d436daa5a29707c3ea275a7c7400230addd.png" alt="\tilde{x}"/> of <img class="math" src="_images/math/833697ce779e554aa3de502514fbb1574b1b7779.png" alt="\mathcal{N}"/> to be sampled
+according to <img class="math" src="_images/math/8c9ef9f08456a5032628a065e391f70dc416ae37.png" alt="P"/> (i.e. we are doing Monte-Carlo).
+With the above formula, we almost have a pratical, stochastic algorithm for
+learning an EBM. The only missing ingredient is how to extract these negative
+particles <img class="math" src="_images/math/833697ce779e554aa3de502514fbb1574b1b7779.png" alt="\mathcal{N}"/>. While the statistical literature abounds with
+sampling methods, Markov Chain Monte Carlo methods are especially well suited
+for models such as the Restricted Boltzmann Machines (RBM), a specific type of
+EBM.</p>
+</div>
+<div class="section" id="id1">
+<h2>Restricted Boltzmann Machines (RBM)<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Boltzmann Machines (BMs) are a particular form of log-linear Markov Random Field (MRF),
+i.e., for which the energy function is linear in its free parameters. To make
+them powerful enough to represent complicated distributions (i.e., go from the
+limited parametric setting to a non-parametric one), we consider that some of
+the variables are never observed (they are called hidden). By having more hidden
+variables (also called hidden units), we can increase the modeling capacity
+of the Boltzmann Machine (BM).
+Restricted Boltzmann Machines further restrict BMs to
+those without visible-visible and hidden-hidden connections.  A graphical
+depiction of an RBM is shown below.</p>
+<img alt="_images/rbm.png" class="align-center" src="_images/rbm.png" />
+<p>The energy function <img class="math" src="_images/math/5827a4c8ca783b67bbcfd9dafdb30402db78b223.png" alt="E(v,h)"/> of an RBM is defined as:</p>
+<div class="math" id="equation-rbm_energy">
+<p><span class="eqno">(6)</span><img src="_images/math/b3e8eade9062ac5118ebbb1d0bd90c9cfd372f0f.png" alt="E(v,h) = - b'v - c'h - h'Wv"/></p>
+</div><p>where <img class="math" src="_images/math/597c3a32b95a572264f23d8ac380dea3e50e0cc0.png" alt="W"/> represents the weights connecting hidden and visible units and
+<img class="math" src="_images/math/30f56f8625112194b5cbc79b78f8213604a50dd2.png" alt="b"/>, <img class="math" src="_images/math/70429a8090e3025b85ccc885fad12ba9d5dca934.png" alt="c"/> are the offsets of the visible and hidden layers
+respectively.</p>
+<p>This translates directly to the following free energy formula:</p>
+<div class="math">
+<p><img src="_images/math/156a96410f4e36fd29a6f21ce985e9b3bf1831f9.png" alt="\mathcal{F}(v)= - b'v - \sum_i \log \sum_{h_i} e^{h_i (c_i + W_i v)}."/></p>
+</div><p>Because of the specific structure of RBMs, visible and hidden units are
+conditionally independent given one-another. Using this property, we can
+write:</p>
+<div class="math">
+<p><img src="_images/math/6d150bdd1676c2e990ff6d11ab439555e7db97af.png" alt="p(h|v) &amp;= \prod_i p(h_i|v) \\
+p(v|h) &amp;= \prod_j p(v_j|h)."/></p>
+</div><p><strong>RBMs with binary units</strong></p>
+<p>In the commonly studied case of using binary units (where <img class="math" src="_images/math/6ed0a268fd8a24cbb6efecc6b3ae8cb8fc910267.png" alt="v_j"/> and <img class="math" src="_images/math/4199bc6a825f0a8aee5d44dec2e8520e1935fc16.png" alt="h_i \in
+\{0,1\}"/>), we obtain from Eq. <a class="reference internal" href="#equation-rbm_energy">(6)</a> and <a class="reference internal" href="#equation-energy2">(2)</a>, a probabilistic
+version of the usual neuron activation function:</p>
+<div class="math" id="equation-rbm_propup">
+<p><span class="eqno">(7)</span><img src="_images/math/0163eddb49ce8beb2e816b5249366e46433718f6.png" alt="P(h_i=1|v) = sigm(c_i + W_i v) \\"/></p>
+</div><div class="math" id="equation-rbm_propdown">
+<p><span class="eqno">(8)</span><img src="_images/math/65ab71eca6d925ad9180942444c0f38e699e1d78.png" alt="P(v_j=1|h) = sigm(b_j + W'_j h)"/></p>
+</div><p>The free energy of an RBM with binary units further simplifies to:</p>
+<div class="math" id="equation-rbm_free_energy">
+<p><span class="eqno">(9)</span><img src="_images/math/0f8599eb70620484b6b8d63ae3aa22dda54b88fb.png" alt="\mathcal{F}(v)= - b'v - \sum_i \log(1 + e^{(c_i + W_i v)})."/></p>
+</div><p><strong>Update Equations with Binary Units</strong></p>
+<p>Combining Eqs. <a class="reference internal" href="#equation-bm_grad">(5)</a> with <a class="reference internal" href="#equation-rbm_free_energy">(9)</a>, we obtain the
+following log-likelihood gradients for an RBM with binary units:</p>
+<div class="math" id="equation-rbm_grad">
+<p><span class="eqno">(10)</span><img src="_images/math/712eca5eb5d241fe1dedce7ebb8f59922f9bf258.png" alt="- \frac{\partial{ \log p(v)}}{\partial W_{ij}} &amp;=
+    E_v[p(h_i|v) \cdot v_j]
+    - v^{(i)}_j \cdot sigm(W_i \cdot v^{(i)} + c_i) \\
+-\frac{\partial{ \log p(v)}}{\partial c_i} &amp;=
+    E_v[p(h_i|v)] - sigm(W_i \cdot v^{(i)})  \\
+-\frac{\partial{ \log p(v)}}{\partial b_j} &amp;=
+    E_v[p(v_j|h)] - v^{(i)}_j"/></p>
+</div><p>For a more detailed derivation of these equations, we refer the reader to the
+following <a class="reference external" href="http://www.iro.umontreal.ca/~lisa/twiki/bin/view.cgi/Public/DBNEquations">page</a>,
+or to section 5 of <a class="reference external" href="http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239">Learning Deep Architectures for AI</a>. We will however not use these formulas, but rather get the gradient using Theano <a class="reference external" href="http://deeplearning.net/software/theano/tutorial/examples.html#computing-gradients">T.grad</a>
+from equation <a class="reference internal" href="#equation-free_energy_grad">(4)</a>.</p>
+</div>
+<div class="section" id="sampling-in-an-rbm">
+<h2>Sampling in an RBM<a class="headerlink" href="#sampling-in-an-rbm" title="Permalink to this headline">¶</a></h2>
+<p>Samples of <img class="math" src="_images/math/ddc590905fcd926b8b9278a53730920e261ca17f.png" alt="p(x)"/> can be obtained by running a Markov chain to
+convergence, using Gibbs sampling as the transition operator.</p>
+<p>Gibbs sampling of the joint of N random variables <img class="math" src="_images/math/f5ec88b76108ca3b55689955c22c210df89c216d.png" alt="S=(S_1, ... , S_N)"/>
+is done through a sequence of N sampling sub-steps of the form
+<img class="math" src="_images/math/058b7d4da12e539a6c690b3d71aa832472b8021a.png" alt="S_i \sim p(S_i | S_{-i})"/> where <img class="math" src="_images/math/94f9aaebd0ddaad31d527942398fe4987f42ce01.png" alt="S_{-i}"/> contains the <img class="math" src="_images/math/1dae2ea1eda247cbbcedb9b56cf99212eb9dc9df.png" alt="N-1"/>
+other random variables in <img class="math" src="_images/math/87de2b1186fc3f1e3e509a2cecd80c24f455993d.png" alt="S"/> excluding <img class="math" src="_images/math/ddf15a2bb1e7305590c51df5970acd7b95901c51.png" alt="S_i"/>.</p>
+<p>For RBMs, <img class="math" src="_images/math/87de2b1186fc3f1e3e509a2cecd80c24f455993d.png" alt="S"/> consists of the set of visible and hidden units. However,
+since they are conditionally independent, one can perform block Gibbs
+sampling. In this setting, visible units are sampled simultaneously given
+fixed values of the hidden units. Similarly, hidden units are sampled
+simultaneously given the visibles. A step in the Markov chain is thus taken as
+follows:</p>
+<div class="math">
+<p><img src="_images/math/dcec7ec01a9668449f23b2325f627c43cf501ccf.png" alt="h^{(n+1)} &amp;\sim sigm(W'v^{(n)} + c) \\
+v^{(n+1)} &amp;\sim sigm(W h^{(n+1)} + b),"/></p>
+</div><p>where <img class="math" src="_images/math/41504451a9b774cfbb62ab089445535e61ea01e6.png" alt="h^{(n)}"/> refers to the set of all hidden units at the n-th step of
+the Markov chain. What it means is that, for example, <img class="math" src="_images/math/a84f316a4b7efb1d19e4793a9f8bed588266f24a.png" alt="h^{(n+1)}_i"/> is
+randomly chosen to be 1 (versus 0) with probability <img class="math" src="_images/math/c752733a9a76a89fc42187e3d9ee1c821f921469.png" alt="sigm(W_i'v^{(n)} + c_i)"/>,
+and similarly,
+<img class="math" src="_images/math/eea7ca8eaa081012e36d6e1daa2f408386aba2d8.png" alt="v^{(n+1)}_j"/> is
+randomly chosen to be 1 (versus 0) with probability <img class="math" src="_images/math/95a520f8691bd2d40bbf01dc93fca5e01e32fd9c.png" alt="sigm(W_{.j} h^{(n+1)} + b_j)"/>.</p>
+<p>This can be illustrated graphically:</p>
+<img alt="_images/markov_chain.png" class="align-center" src="_images/markov_chain.png" />
+<p>As <img class="math" src="_images/math/4ab814fd59b4b165dbf762d89fc1db5e03e7d3ec.png" alt="t \rightarrow \infty"/>, samples <img class="math" src="_images/math/0e6e6ec73dd8168b73ce5c675452c432c1f7df41.png" alt="(v^{(t)}, h^{(t)})"/> are
+guaranteed to be accurate samples of <img class="math" src="_images/math/77b4c812c3c6a4567cc02baf0ee5c3303f7d55f6.png" alt="p(v,h)"/>.</p>
+<p>In theory, each parameter update in the learning process would require running
+one such chain to convergence. It is needless to say that doing so would be
+prohibitively expensive. As such, several algorithms have been devised for
+RBMs, in order to efficiently sample from <img class="math" src="_images/math/77b4c812c3c6a4567cc02baf0ee5c3303f7d55f6.png" alt="p(v,h)"/> during the learning
+process.</p>
+<div class="section" id="contrastive-divergence-cd-k">
+<h3>Contrastive Divergence (CD-k)<a class="headerlink" href="#contrastive-divergence-cd-k" title="Permalink to this headline">¶</a></h3>
+<p>Contrastive Divergence uses two tricks to speed up the sampling process:</p>
+<ul class="simple">
+<li>since we eventually want <img class="math" src="_images/math/2c3f8a27f04da4db45f93b926c6bbaecc40655f6.png" alt="p(v) \approx p_{train}(v)"/> (the true, underlying
+distribution of the data), we initialize the Markov chain with a training
+example (i.e., from a distribution that is expected to be close to <img class="math" src="_images/math/fa915e8f7f3dacd90e360aabb9221a7ff3a28f5e.png" alt="p"/>,
+so that the chain will be already close to having converged to its final distribution <img class="math" src="_images/math/fa915e8f7f3dacd90e360aabb9221a7ff3a28f5e.png" alt="p"/>).</li>
+<li>CD does not wait for the chain to converge. Samples are obtained after only
+k-steps of Gibbs sampling. In pratice, <img class="math" src="_images/math/9fdcb6026128432a83ab79d4bc48dc2ed38c4178.png" alt="k=1"/> has been shown to work
+surprisingly well.</li>
+</ul>
+</div>
+<div class="section" id="persistent-cd">
+<h3>Persistent CD<a class="headerlink" href="#persistent-cd" title="Permalink to this headline">¶</a></h3>
+<p>Persistent CD <a class="reference internal" href="references.html#tieleman08" id="id2">[Tieleman08]</a> uses another approximation for sampling from
+<img class="math" src="_images/math/77b4c812c3c6a4567cc02baf0ee5c3303f7d55f6.png" alt="p(v,h)"/>.  It relies on a single Markov chain, which has a persistent
+state (i.e., not restarting a chain for each observed example). For each
+parameter update, we extract new samples by simply running the chain for
+k-steps. The state of the chain is then preserved for subsequent updates.</p>
+<p>The general intuition is that if parameter updates are small enough compared
+to the mixing rate of the chain, the Markov chain should be able to &#8220;catch up&#8221;
+to changes in the model.</p>
+</div>
+</div>
+<div class="section" id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this headline">¶</a></h2>
+<p>We construct an <code class="docutils literal"><span class="pre">RBM</span></code> class. The parameters of the network can either be
+initialized by the constructor or can be passed as arguments. This option is
+useful when an RBM is used as the building block of a deep network, in which
+case the weight matrix and the hidden layer bias is shared with the
+corresponding sigmoidal layer of an MLP network.</p>
+<p>Next step is to define functions which construct the symbolic graph associated
+with Eqs. <a class="reference internal" href="#equation-rbm_propup">(7)</a> - <a class="reference internal" href="#equation-rbm_propdown">(8)</a>. The code is as follows:</p>
+<p>We can then use these functions to define the symbolic graph for a Gibbs
+sampling step. We define two functions:</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">gibbs_vhv</span></code> which performs a step of Gibbs sampling starting from the
+visible units. As we shall see, this will be useful for sampling from the
+RBM.</li>
+<li><code class="docutils literal"><span class="pre">gibbs_hvh</span></code> which performs a step of Gibbs sampling starting from the hidden units.
+This function will be useful for performing CD and PCD updates.</li>
+</ul>
+<p>The code is as follows:</p>
+<p>Note that we also return the pre-sigmoid
+activation. To understand why this is so you need to understand a bit about
+how Theano works. Whenever you compile a Theano function, the computational
+graph that you pass as input gets optimized for speed and stability. This
+is done by changing several parts of the subgraphs with others. One
+such optimization expresses terms of the form log(sigmoid(x)) in terms of
+softplus. We need this optimization for the cross-entropy since sigmoid of
+numbers larger than 30. (or even less then that) turn to 1. and numbers
+smaller than  -30. turn to 0 which in terms will force theano
+to compute log(0) and therefore we will get either -inf or NaN
+as cost. If the value is expressed in terms of softplus we do
+not get this undesirable behaviour. This optimization usually works
+fine, but here we have a special case. The sigmoid is applied inside
+the scan op, while the log is outside. Therefore Theano will only
+see log(scan(..)) instead of log(sigmoid(..)) and will not apply
+the wanted optimization. We can not go and replace the sigmoid
+in scan with something else also, because this only needs to be
+done on the last step. Therefore the easiest and more efficient way
+is to get also the pre-sigmoid activation as an output of scan,
+and apply both the log and sigmoid outside scan such that Theano
+can catch and optimize the expression.</p>
+<p>The class also has a function that computes the free energy of the model,
+needed for computing the gradient of the parameters
+(see Eq. <a class="reference internal" href="#equation-free_energy_grad">(4)</a>). Note that we also return the pre-sigmoid</p>
+<p>We then add a <code class="docutils literal"><span class="pre">get_cost_updates</span></code> method, whose purpose is to generate the symbolic
+gradients for CD-k and PCD-k updates.</p>
+<p>Note that <code class="docutils literal"><span class="pre">get_cost_updates</span></code> takes as argument a variable called <code class="docutils literal"><span class="pre">persistent</span></code>. This allows us to use the same code to implement both CD and PCD.
+To use PCD, <code class="docutils literal"><span class="pre">persistent</span></code> should refer to a shared variable which contains the
+state of the Gibbs chain from the previous iteration.</p>
+<p>If <code class="docutils literal"><span class="pre">persistent</span></code> is <code class="docutils literal"><span class="pre">None</span></code>, we initialize the Gibbs chain with the hidden
+sample generated during the positive phase, therefore implementing CD. Once we have established the
+starting point of the chain, we can then compute the sample at the end of the
+Gibbs chain, sample that we need for getting the gradient (see  Eq. <a class="reference internal" href="#equation-free_energy_grad">(4)</a>). To do so, we will use the <code class="docutils literal"><span class="pre">scan</span></code>
+op provided by Theano, therefore we urge the reader to look it up by following this <a class="reference external" href="http://deeplearning.net/software/theano/library/scan.html">link</a>.</p>
+<p>Once we have the generated the chain we take the sample at the end of the
+chain to get the free energy of the negative phase. Note that the
+<code class="docutils literal"><span class="pre">chain_end</span></code> is a symbolical Theano variable expressed in terms of the model
+parameters, and if we would apply <code class="docutils literal"><span class="pre">T.grad</span></code> naively, the function will
+try to go through the Gibbs chain to get the gradients. This is not what we
+want (it will mess up our gradients) and therefore we need to indicate to
+<code class="docutils literal"><span class="pre">T.grad</span></code> that <code class="docutils literal"><span class="pre">chain_end</span></code> is a constant. We do this by using the argument
+<code class="docutils literal"><span class="pre">consider_constant</span></code> of <code class="docutils literal"><span class="pre">T.grad</span></code>.</p>
+<p>Finally, we add to the updates dictionary returned by scan (which contains
+updates rules for random states of <code class="docutils literal"><span class="pre">theano_rng</span></code>) to contain the parameter
+updates. In the case of PCD, these should also update the shared variable
+containing the state of the Gibbs chain.</p>
+<div class="section" id="tracking-progress">
+<h3>Tracking Progress<a class="headerlink" href="#tracking-progress" title="Permalink to this headline">¶</a></h3>
+<p>RBMs are particularly tricky to train. Because of the partition function
+<img class="math" src="_images/math/cdc2cc2629a0931f2f27ab65629fbb5a248ca220.png" alt="Z"/> of Eq. <a class="reference internal" href="#equation-energy1">(1)</a>, we cannot estimate the log-likelihood
+<img class="math" src="_images/math/c44ddcaef78d18811d3fb5e4408c746e23a9b224.png" alt="\log(P(x))"/> during training. We therefore have no direct useful metric
+for choosing the optimal hyperparameters.</p>
+<p>Several options are available to the user.</p>
+<p><strong>Inspection of Negative Samples</strong></p>
+<p>Negative samples obtained during training can be visualized. As training
+progresses, we know that the model defined by the RBM becomes closer to the
+true underlying distribution, <img class="math" src="_images/math/8d9991caaa0cfcc9e8180915161d4c49d6e9c14e.png" alt="p_{train}(x)"/>. Negative samples should thus
+look like samples from the training set. Obviously bad hyperparameters can be
+discarded in this fashion.</p>
+<p><strong>Visual Inspection of Filters</strong></p>
+<p>The filters learnt by the model can be visualized. This amounts to plotting
+the weights of each unit as a gray-scale image (after reshaping to a square
+matrix). Filters should pick out strong features in the data. While it is not
+clear for an arbitrary dataset, what these features should look like, training
+on MNIST usually results in filters which act as stroke detectors, while
+training on natural images lead to Gabor like filters if trained in
+conjunction with a sparsity criteria.</p>
+<p><strong>Proxies to Likelihood</strong></p>
+<p>Other, more tractable functions can be used as a proxy to the likelihood.  When
+training an RBM with PCD, one can use pseudo-likelihood as the proxy.
+Pseudo-likelihood (PL) is much less expensive to compute, as it assumes that
+all bits are independent. Therefore,</p>
+<div class="math">
+<p><img src="_images/math/9afc7d86b2124474783cdcea6107b600dc87c921.png" alt="PL(x) = \prod_i P(x_i | x_{-i}) \text{ and }\\
+\log PL(x) = \sum_i \log P(x_i | x_{-i})"/></p>
+</div><p>Here <img class="math" src="_images/math/63e508bff9b5af7b5cc0d3f42ee161eecf54f8de.png" alt="x_{-i}"/> denotes the set of all bits of <img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> except bit
+<img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>. The log-PL is therefore the sum of the log-probabilities of each
+bit <img class="math" src="_images/math/df7dd5f4fb1abf9443ed19f99d10a26be2be0736.png" alt="x_i"/>, conditioned on the state of all other bits. For MNIST, this
+would involve summing over the 784 input dimensions, which remains rather
+expensive. For this reason, we use the following stochastic approximation to
+log-PL:</p>
+<div class="math">
+<p><img src="_images/math/2cfd1b83d48af48b58613116a4082a4650db9f73.png" alt="g = N \cdot \log P(x_i | x_{-i}) \text{, where } i \sim U(0,N), \text{, and}\\
+E[ g ] = \log PL(x)"/></p>
+</div><p>where the expectation is taken over the uniform random choice of index <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>,
+and <img class="math" src="_images/math/bd4798ffc9448ab882c49c2acdc85f629c1e54b3.png" alt="N"/> is the number of visible units. In order to work with binary
+units, we further introduce the notation <img class="math" src="_images/math/b4c8de2801baa728cca54823b5e0216f206c7b20.png" alt="\tilde{x}_i"/> to refer to
+<img class="math" src="_images/math/5fea02fa2a6372f999ae409954f23bba35f00b77.png" alt="x"/> with bit-i being flipped (1-&gt;0, 0-&gt;1). The log-PL for an RBM with binary units is
+then written as:</p>
+<div class="math">
+<p><img src="_images/math/e2477c343b6cd503ab7e7b468be34d0c96d80a3c.png" alt="\log PL(x) &amp;\approx N \cdot \log
+   \frac {e^{-FE(x)}} {e^{-FE(x)} + e^{-FE(\tilde{x}_i)}} \\
+&amp;\approx N \cdot \log[ sigm (FE(\tilde{x}_i) - FE(x)) ]"/></p>
+</div><p>We therefore return this cost as well as the RBM updates in the  <code class="docutils literal"><span class="pre">get_cost_updates</span></code> function of the <code class="docutils literal"><span class="pre">RBM</span></code> class.
+Notice that we modify the updates dictionary to increment the
+index of bit <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/>. This will result in bit <img class="math" src="_images/math/21d98334101b86128698b3b3e441168f62e89905.png" alt="i"/> cycling over all possible
+values <img class="math" src="_images/math/0445b0da7b4a2e7e9c1cec5fb1d809a01e00129b.png" alt="\{0,1,...,N\}"/>, from one update to another.</p>
+<p>Note that for CD training the cross-entropy cost between the input and the
+reconstruction (the same as the one used for the de-noising autoencoder) is more reliable then the pseudo-loglikelihood. Here is the code we use to
+compute the pseudo-likelihood:</p>
+</div>
+<div class="section" id="main-loop">
+<h3>Main Loop<a class="headerlink" href="#main-loop" title="Permalink to this headline">¶</a></h3>
+<p>We now have all the necessary ingredients to start training our network.</p>
+<p>Before going over the training loop however, the reader should familiarize
+himself with the function <code class="docutils literal"><span class="pre">tile_raster_images</span></code> (see <a class="reference internal" href="utilities.html#how-to-plot"><span class="std std-ref">Plotting Samples and Filters</span></a>). Since
+RBMs are generative models, we are interested in sampling from them and
+plotting/visualizing these samples. We also want to visualize the filters
+(weights) learnt by the RBM, to gain insights into what the RBM is actually
+doing. Bear in mind however, that this does not provide the entire story,
+since we neglect the biases and plot the weights up to a multiplicative
+constant (weights are converted to values between 0 and 1).</p>
+<p>Having these utility functions, we can start training the RBM and plot/save
+the filters after each training epoch.  We train the RBM using PCD, as it has
+been shown to lead to a better generative model (<a class="reference internal" href="references.html#tieleman08" id="id3">[Tieleman08]</a>).</p>
+<p>Once the RBM is trained, we can then use the <code class="docutils literal"><span class="pre">gibbs_vhv</span></code> function to implement
+the Gibbs chain required for sampling. We initialize the Gibbs chain starting
+from test examples (although we could as well pick it from the training set)
+in order to speed up convergence and avoid problems with random
+initialization. We again use Theano&#8217;s <code class="docutils literal"><span class="pre">scan</span></code> op to do 1000 steps before
+each plotting.</p>
+<p>Next we create the 20 persistent chains in parallel to get our
+samples. To do so, we compile a theano function which performs one Gibbs step
+and updates the state of the persistent chain with the new visible sample. We
+apply this function iteratively for a large number of steps, plotting the
+samples at every 1000 steps.</p>
+</div>
+</div>
+<div class="section" id="results">
+<h2>Results<a class="headerlink" href="#results" title="Permalink to this headline">¶</a></h2>
+<p>We ran the code with PCD-15, learning rate of 0.1 and a batch size of 20, for
+15 epochs. Training the model takes 122.466 minutes on a Intel Xeon E5430 &#64;
+2.66GHz CPU, with a single-threaded GotoBLAS.</p>
+<p>The output was the following:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>... loading data
+Training epoch 0, cost is  -90.6507246003
+Training epoch 1, cost is  -81.235857373
+Training epoch 2, cost is  -74.9120966945
+Training epoch 3, cost is  -73.0213216101
+Training epoch 4, cost is  -68.4098570497
+Training epoch 5, cost is  -63.2693021647
+Training epoch 6, cost is  -65.99578971
+Training epoch 7, cost is  -68.1236650015
+Training epoch 8, cost is  -68.3207365087
+Training epoch 9, cost is  -64.2949797113
+Training epoch 10, cost is  -61.5194867893
+Training epoch 11, cost is  -61.6539369402
+Training epoch 12, cost is  -63.5465278086
+Training epoch 13, cost is  -63.3787093527
+Training epoch 14, cost is  -62.755739271
+Training took 122.466000 minutes
+ ... plotting sample  0
+ ... plotting sample  1
+ ... plotting sample  2
+ ... plotting sample  3
+ ... plotting sample  4
+ ... plotting sample  5
+ ... plotting sample  6
+ ... plotting sample  7
+ ... plotting sample  8
+ ... plotting sample  9
+</pre></div>
+</div>
+<p>The pictures below show the filters after 15 epochs:</p>
+<div class="figure align-center" id="id4">
+<img alt="_images/filters_at_epoch_14.png" src="_images/filters_at_epoch_14.png" />
+<p class="caption"><span class="caption-text">Filters obtained after 15 epochs.</span></p>
+</div>
+<p>Here are the samples generated by the RBM after training. Each row
+represents a mini-batch of negative particles (samples from independent Gibbs
+chains). 1000 steps of Gibbs sampling were taken between each of those rows.</p>
+<div class="figure align-center">
+<img alt="_images/samples.png" src="_images/samples.png" />
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="DBN.html" title="Deep Belief Networks"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="SdA.html" title="Stacked Denoising Autoencoders (SdA)"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>

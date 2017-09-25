@@ -1,0 +1,239 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Modeling and generating sequences of polyphonic music with the RNN-RBM &#8212; DeepLearning 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Miscellaneous" href="utilities.html" />
+    <link rel="prev" title="LSTM Networks for Sentiment Analysis" href="lstm.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="utilities.html" title="Miscellaneous"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="lstm.html" title="LSTM Networks for Sentiment Analysis"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Modeling and generating sequences of polyphonic music with the RNN-RBM</a><ul>
+<li><a class="reference internal" href="#the-rnn-rbm">The RNN-RBM</a></li>
+<li><a class="reference internal" href="#implementation">Implementation</a><ul>
+<li><a class="reference internal" href="#the-rbm-layer">The RBM layer</a></li>
+<li><a class="reference internal" href="#the-rnn-layer">The RNN layer</a></li>
+<li><a class="reference internal" href="#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#results">Results</a></li>
+<li><a class="reference internal" href="#how-to-improve-this-code">How to improve this code</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="lstm.html"
+                        title="previous chapter">LSTM Networks for Sentiment Analysis</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="utilities.html"
+                        title="next chapter">Miscellaneous</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/rnnrbm.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="modeling-and-generating-sequences-of-polyphonic-music-with-the-rnn-rbm">
+<span id="rnnrbm"></span><h1>Modeling and generating sequences of polyphonic music with the RNN-RBM<a class="headerlink" href="#modeling-and-generating-sequences-of-polyphonic-music-with-the-rnn-rbm" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This tutorial demonstrates a basic implementation of the RNN-RBM as described in <a class="reference internal" href="references.html#boulangerlewandowski12" id="id1">[BoulangerLewandowski12]</a>
+(<a class="reference external" href="http://www-etud.iro.umontreal.ca/~boulanni/ICML2012.pdf">pdf</a>).
+We assume the reader is familiar with
+<a class="reference external" href="http://deeplearning.net/software/theano/library/scan.html">recurrent neural networks using the scan op</a>
+and <a class="reference external" href="rbm.html">restricted Boltzmann machines (RBM)</a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The code for this section is available for download here: <a class="reference external" href="code/rnnrbm.py">rnnrbm.py</a>.</p>
+<p>You will need the modified <a class="reference external" href="http://www.iro.umontreal.ca/~lisa/deep/midi.zip">Python MIDI package (GPL license)</a> in your <code class="docutils literal"><span class="pre">$PYTHONPATH</span></code> or in the working directory in order to convert MIDI files to and from piano-rolls.
+The script also assumes that the content of the <a class="reference external" href="http://www.iro.umontreal.ca/~lisa/deep/data/Nottingham.zip">Nottingham Database of folk tunes</a> has been extracted in the <code class="docutils literal"><span class="pre">../data</span></code> directory.
+Alternative MIDI datasets are available <a class="reference external" href="http://www-etud.iro.umontreal.ca/~boulanni/icml2012">here</a>.</p>
+<p class="last">Note that both dependencies above can be setup automatically by running the <a class="reference external" href="https://github.com/lisa-lab/DeepLearningTutorials/blob/master/data/download.sh">download.sh</a> script in the <code class="docutils literal"><span class="pre">../data</span></code> directory of the <a class="reference external" href="https://github.com/lisa-lab/DeepLearningTutorials">Deep Learning Tutorials repository</a>.</p>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Need Theano 0.6 or more recent.</p>
+</div>
+<div class="section" id="the-rnn-rbm">
+<h2>The RNN-RBM<a class="headerlink" href="#the-rnn-rbm" title="Permalink to this headline">¶</a></h2>
+<p>The RNN-RBM is an energy-based model for density estimation of temporal sequences, where the feature vector <img class="math" src="_images/math/085415cc03f87f26994199fa2cb3c1a22276e4ce.png" alt="v^{(t)}"/> at time step <img class="math" src="_images/math/4129d14426df0cf11bade24233b1eeb71fc842a3.png" alt="t"/> may be high-dimensional.
+It allows to describe multimodal conditional distributions of <img class="math" src="_images/math/da409f924efa3bbdfcdc77542100efb8a61a527c.png" alt="v^{(t)}|\mathcal A^{(t)}"/>, where <img class="math" src="_images/math/7aedb0e34edcdeee659a32e86c8483ef3a8a04b1.png" alt="\mathcal A^{(t)}\equiv \{v_\tau|\tau&lt;t\}"/> denotes the <em>sequence history</em> at time <img class="math" src="_images/math/4129d14426df0cf11bade24233b1eeb71fc842a3.png" alt="t"/>, via a series of conditional RBMs (one a each time step) whose parameters <img class="math" src="_images/math/4b2a88af00c13e1082c088ab6f96a4bb229e7f2c.png" alt="b_v^{(t)},b_h^{(t)}"/> depend on the output of a deterministic RNN with hidden units <img class="math" src="_images/math/299cd7759f1de35d872179acde4a46326f9bc45c.png" alt="u^{(t)}"/>:</p>
+<div class="math" id="equation-bv_t">
+<p><span class="eqno">(1)</span><img src="_images/math/c4a67ce85a48cd6a72588e7ebc9e2a3575158368.png" alt="b_v^{(t)} = b_v + W_{uv} u^{(t-1)}"/></p>
+</div><div class="math" id="equation-bh_t">
+<p><span class="eqno">(2)</span><img src="_images/math/f6d1a2d93208f1c1521994925b20ceeff20d313f.png" alt="b_h^{(t)} = b_h + W_{uh} u^{(t-1)}"/></p>
+</div><p>and the single-layer RNN recurrence relation is defined by:</p>
+<div class="math" id="equation-u_t">
+<p><span class="eqno">(3)</span><img src="_images/math/cdfe2d543a6ab55705281c8d813e357fef469168.png" alt="u^{(t)} = \tanh (b_u + W_{uu} u^{(t-1)} + W_{vu} v^{(t)})"/></p>
+</div><p>The resulting model is unrolled in time in the following figure:</p>
+<img alt="_images/rnnrbm.png" class="align-center" src="_images/rnnrbm.png" />
+<p>The overall probability distribution is given by the sum over the <img class="math" src="_images/math/105399aff4f2a9de6ef544edd39bad9438783f7a.png" alt="T"/> time steps in a given sequence:</p>
+<div class="math" id="equation-prob_rnnrbm">
+<p><span class="eqno">(4)</span><img src="_images/math/fb672ec6d6ef0c099616972d7f032298d5911507.png" alt="P(\{v^{(t)}\}) = \sum_{t=1}^T P(v^{(t)} | \mathcal A^{(t)})"/></p>
+</div><p>where the right-hand side multiplicand is the marginalized probability of the <img class="math" src="_images/math/9face0ef60878abbb4737e1a1c95825d8a955aff.png" alt="t^\mathrm{th}"/> RBM.</p>
+<p>Note that for clarity of the implementation, contrarily to <a class="reference internal" href="references.html#boulangerlewandowski12" id="id2">[BoulangerLewandowski12]</a>, we use the obvious naming convention for weight matrices and we use <img class="math" src="_images/math/299cd7759f1de35d872179acde4a46326f9bc45c.png" alt="u^{(t)}"/> instead of <img class="math" src="_images/math/bd290715e76a453851ac098f76487d2c2e236a86.png" alt="\hat h^{(t)}"/> for the recurrent hidden units.</p>
+</div>
+<div class="section" id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this headline">¶</a></h2>
+<p>We wish to construct two Theano functions: one to train the RNN-RBM, and one to generate sample sequences from it.</p>
+<p>For <em>training</em>, i.e. given <img class="math" src="_images/math/c8bb331d14f329c0f39cc5474bde7f673308f988.png" alt="\{v^{(t)}\}"/>, the RNN hidden state <img class="math" src="_images/math/f011094e6f121a7681cfac6c27443f89946d85f6.png" alt="\{u^{(t)}\}"/> and the associated <img class="math" src="_images/math/05f15e8c61a3fb47470357a2cfc7dfbed22fab20.png" alt="\{b_v^{(t)}, b_h^{(t)}\}"/> parameters are deterministic and can be readily computed for each training sequence.
+A stochastic gradient descent (SGD) update on the parameters can then be estimated via contrastive divergence (CD) on the individual time steps of a sequence in the same way that individual training examples are treated in a mini-batch for regular RBMs.</p>
+<p><em>Sequence generation</em> is similar except that the <img class="math" src="_images/math/085415cc03f87f26994199fa2cb3c1a22276e4ce.png" alt="v^{(t)}"/> must be sampled sequentially at each time step with a separate (non-batch) Gibbs chain before being passed down to the recurrence and the sequence history.</p>
+<div class="section" id="the-rbm-layer">
+<h3>The RBM layer<a class="headerlink" href="#the-rbm-layer" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">build_rbm</span></code> function shown below builds a Gibbs chain from an input mini-batch (a binary matrix) via the CD approximation.
+Note that it also supports a single frame (a binary vector) in the non-batch case.</p>
+</div>
+<div class="section" id="the-rnn-layer">
+<h3>The RNN layer<a class="headerlink" href="#the-rnn-layer" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">build_rnnrbm</span></code> function defines the RNN recurrence relation to obtain the RBM parameters; the recurrence function is flexible enough to serve both in the training scenario where <img class="math" src="_images/math/085415cc03f87f26994199fa2cb3c1a22276e4ce.png" alt="v^{(t)}"/> is given and the &#8220;batch&#8221; RBM is constructed at the end on the whole sequence at once, and in the generation scenario where <img class="math" src="_images/math/085415cc03f87f26994199fa2cb3c1a22276e4ce.png" alt="v^{(t)}"/> is sampled separately at each time step using the Gibbs chain defined above.</p>
+</div>
+<div class="section" id="putting-it-all-together">
+<h3>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Permalink to this headline">¶</a></h3>
+<p>We now have all the necessary ingredients to start training our network on real symbolic sequences of polyphonic music.</p>
+</div>
+</div>
+<div class="section" id="results">
+<h2>Results<a class="headerlink" href="#results" title="Permalink to this headline">¶</a></h2>
+<p>We ran the code on the Nottingham database for 200 epochs; training took approximately 24 hours.</p>
+<p>The output was the following:</p>
+<div class="highlight-text"><div class="highlight"><pre><span></span>Epoch 1/200 -15.0308940028
+Epoch 2/200 -10.4892606673
+Epoch 3/200 -10.2394696138
+Epoch 4/200 -10.1431669994
+Epoch 5/200 -9.7005382843
+Epoch 6/200 -8.5985647524
+Epoch 7/200 -8.35115428534
+Epoch 8/200 -8.26453580552
+Epoch 9/200 -8.21208991542
+Epoch 10/200 -8.16847274143
+
+... truncated for brevity ...
+
+Epoch 190/200 -4.74799179994
+Epoch 191/200 -4.73488515216
+Epoch 192/200 -4.7326138489
+Epoch 193/200 -4.73841636884
+Epoch 194/200 -4.70255511452
+Epoch 195/200 -4.71872634914
+Epoch 196/200 -4.7276415885
+Epoch 197/200 -4.73497644728
+Epoch 198/200 -inf
+Epoch 199/200 -4.75554987143
+Epoch 200/200 -4.72591935412
+</pre></div>
+</div>
+<p>The figures below show the piano-rolls of two sample sequences and we provide the corresponding MIDI files:</p>
+<div class="figure" id="id4">
+<a class="reference internal image-reference" href="_images/sample1.png"><img alt="_images/sample1.png" src="_images/sample1.png" style="width: 487.2px; height: 367.2px;" /></a>
+<p class="caption"><span class="caption-text">Listen to <a class="reference external" href="http://www-etud.iro.umontreal.ca/~boulanni/sample1.mid">sample1.mid</a></span></p>
+</div>
+<div class="figure" id="id5">
+<a class="reference internal image-reference" href="_images/sample2.png"><img alt="_images/sample2.png" src="_images/sample2.png" style="width: 487.2px; height: 367.2px;" /></a>
+<p class="caption"><span class="caption-text">Listen to <a class="reference external" href="http://www-etud.iro.umontreal.ca/~boulanni/sample2.mid">sample2.mid</a></span></p>
+</div>
+</div>
+<div class="section" id="how-to-improve-this-code">
+<h2>How to improve this code<a class="headerlink" href="#how-to-improve-this-code" title="Permalink to this headline">¶</a></h2>
+<p>The code shown in this tutorial is a stripped-down version that can be improved in the following ways:</p>
+<ul class="simple">
+<li>Preprocessing: transposing the sequences in a common tonality (e.g. C major / minor) and normalizing the tempo in beats (quarternotes) per minute can have the most effect on the generative quality of the model.</li>
+<li>Pretraining techniques: initialize the <img class="math" src="_images/math/59c6c3aad376cdca99d94205367e18e742ec5a39.png" alt="W,b_v,b_h"/> parameters with independent RBMs with fully shuffled frames (i.e. <img class="math" src="_images/math/b9ca42b2baebef91be2238a08b6e86d9af734d38.png" alt="W_{uh}=W_{uv}=W_{uu}=W_{vu}=0"/>); initialize the <img class="math" src="_images/math/7c528299edc0247d92a699138bc94699b2439779.png" alt="W_{uv},W_{uu},W_{vu},b_u"/> parameters of the RNN with the auxiliary cross-entropy objective via either SGD or, preferably, Hessian-free optimization <a class="reference internal" href="references.html#boulangerlewandowski12" id="id3">[BoulangerLewandowski12]</a>.</li>
+<li>Optimization techniques: gradient clipping, Nesterov momentum and the use of NADE for conditional density estimation.</li>
+<li>Hyperparameter search: learning rate (separately for the RBM and RNN parts), learning rate schedules, batch size, number of hidden units (recurrent and RBM), momentum coefficient, momentum schedule, Gibbs chain length <img class="math" src="_images/math/06f3d34d39d42ff670798396574715174df4cf31.png" alt="k"/> and early stopping.</li>
+<li>Learn the initial condition <img class="math" src="_images/math/67abc64e0f32069d6d099df3ef60f9dd905d35ce.png" alt="u^{(0)}"/> as a model parameter.</li>
+</ul>
+<p>A few samples generated with code including these features are available here: <a class="reference external" href="http://www-etud.iro.umontreal.ca/~boulanni/sequences.zip">sequences.zip</a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="utilities.html" title="Miscellaneous"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="lstm.html" title="LSTM Networks for Sentiment Analysis"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="contents.html">DeepLearning 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2008--2010, LISA lab.
+      Last updated on Sep 25, 2017.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.1.
+    </div>
+  </body>
+</html>
