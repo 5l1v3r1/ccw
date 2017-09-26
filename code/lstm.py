@@ -10,12 +10,16 @@ import sys
 import time
 
 import numpy
+import numpy as np
 import theano
 from theano import config
 import theano.tensor as tensor
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 import imdb
+from visdom import Visdom
+
+viz = Visdom(server='http://127.0.0.1', port=51401)
 
 datasets = {'imdb': (imdb.load_data, imdb.prepare_data)}
 
@@ -455,7 +459,7 @@ def train_lstm(
     n_words=10000,  # Vocabulary size
     optimizer=adadelta,  # sgd, adadelta and rmsprop available, sgd very hard to use, not recommanded (probably need momentum and decaying learning rate).
     encoder='lstm',  # TODO: can be removed must be lstm.
-    saveto='lstm_model.npz',  # The best model will be saved there
+    saveto='../models/lstm_model.npz',  # The best model will be saved there
     validFreq=370,  # Compute the validation error after this number of update.
     saveFreq=1110,  # Save the parameters after every saveFreq updates
     maxlen=100,  # Sequence longer then this get ignored
@@ -547,6 +551,20 @@ def train_lstm(
     uidx = 0  # the number of update done
     estop = False  # early stop
     start_time = time.time()
+    uidx_list = []
+    cost_list = []
+    eidx_list = []
+
+    win = viz.line(
+            X=(np.arange(0,10)),
+            Y=(np.linspace(0, 100, 10)),
+    )
+    
+    win2 = viz.line(
+            X=(np.arange(0,10)),
+            Y=(np.linspace(0, 100, 10)),
+    )
+
     try:
         for eidx in range(max_epochs):
             n_samples = 0
@@ -569,6 +587,7 @@ def train_lstm(
                 n_samples += x.shape[1]
 
                 cost = f_grad_shared(x, mask, y)
+
                 f_update(lrate)
 
                 if numpy.isnan(cost) or numpy.isinf(cost):
@@ -576,7 +595,23 @@ def train_lstm(
                     return 1., 1., 1.
 
                 if numpy.mod(uidx, dispFreq) == 0:
+                    # print the update for selected epochs
                     print('Epoch ', eidx, 'Update ', uidx, 'Cost ', cost)
+                    eidx_list.append(eidx)
+                    uidx_list.append(uidx)
+                    cost_list.append(cost)
+
+                    viz.line(
+                            X=numpy.asarray(eidx_list),
+                            Y=numpy.asarray(cost_list),
+                            win=win
+                    )
+                    
+                    viz.line(
+                            X=numpy.asarray(uidx_list),
+                            Y=numpy.asarray(cost_list),
+                            win=win2
+                    )
 
                 if saveto and numpy.mod(uidx, saveFreq) == 0:
                     print('Saving...')
